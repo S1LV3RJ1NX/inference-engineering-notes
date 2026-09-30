@@ -7,7 +7,9 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 - **A TL;DR** of the lesson's core claims.
 - **Concept sections** summarized in my own words, with every number and calculation re-checked.
 - **Original figures** (charts, timelines, roofline plots) drawn from the lesson's numbers to make the ideas easier to remember.
-- **An interview prep section** with formulas to memorize, nuances beyond the video, and practice questions with answers.
+- **An interview cheat sheet** on its own pages: numbers to memorize, formulas, comparisons, symptom-to-fix tables and rapid-fire Q&A.
+
+**Interview tomorrow?** Read the [master cheat sheet](pdf/00-interview-cheat-sheet.pdf) ([md](notes/00-interview-cheat-sheet.md)). It collects every lesson's cheat sheet in one file.
 
 ## Lessons
 
