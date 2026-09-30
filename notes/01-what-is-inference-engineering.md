@@ -111,7 +111,7 @@ Real-world evidence:
 
 ### Only numbers worth memorizing
 
-- **H100:** 3.35 TB/s HBM, ◆ ~989 TFLOPS BF16. **Llama 3 8B:** 16 GB in BF16, ◆ ~128 KB KV per token.
+- **H100:** 3.35 TB/s HBM, ◆ ~989 TFLOPS BF16. **Llama 3 8B:** 16 GB in BF16, ~128 KB KV per token (taught in 02).
 - **Software matters:** batching gives ~15× cheaper tokens; vLLM gets up to 24× naive HF throughput.
 
 ### Derive, don't memorize
@@ -167,7 +167,7 @@ $$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\ma
 | High $/token, GPU underused | Batch too small | Scheduling: batch more requests per step |
 | Batch capped by out-of-memory | KV cache fills memory | Memory: pack KV tightly, reuse shared prefixes |
 | Slow tokens even at low load | Too many weight bytes per step | Precision: 8/4-bit weights |
-| High TTFT | Long prompts or queueing | Shorter prompts, prefix reuse, more replicas |
+| High TTFT | Long prompts or queueing | Shorter prompts, more replicas (routing fixes: see 02) |
 | Model doesn't fit one GPU | Size | Parallelism across GPUs, or precision |
 
 ### Rapid-fire Q&A

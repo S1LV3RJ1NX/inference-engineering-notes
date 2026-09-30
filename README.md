@@ -16,6 +16,7 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 | # | Lesson | Notes | PDF |
 |---|---|---|---|
 | 01 | What Is Inference & Inference Engineering? | [md](notes/01-what-is-inference-engineering.md) | [pdf](pdf/01-what-is-inference-engineering.pdf) |
+| 02 | The Inference Stack: Model to GPU to Production | [md](notes/02-the-inference-stack.md) | [pdf](pdf/02-the-inference-stack.pdf) |
 
 ## About
 
