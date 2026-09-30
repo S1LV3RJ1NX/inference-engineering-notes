@@ -2,7 +2,8 @@
 
 **Source:** [fanout.sh / inference-eng / in-01](https://fanout.sh/inference-eng/curriculum/in-01) · ~9 min · Next: *The Inference Stack*
 
-> **TL;DR.** Inference is running a trained model token by token, every time someone uses it, so across a fleet it usually costs more than training. Decode is limited by memory bandwidth (moving weights), not arithmetic. Latency, throughput and cost pull against each other, and batching is the first lever. The job is a loop: measure, find the bottleneck, change one thing, measure again.
+> [!NOTE]
+> Inference is running a trained model token by token, every time someone uses it, so across a fleet it usually costs more than training. Decode is limited by memory bandwidth (moving weights), not arithmetic. Latency, throughput and cost pull against each other, and batching is the first lever. The job is a loop: measure, find the bottleneck, change one thing, measure again.
 
 ## 1. Why inference matters: the DeepSeek bill
 
@@ -13,7 +14,8 @@
 - Ran on **~1,800 GPUs** on average. At $2/GPU-hour: 1,800 × 24 × $2 ≈ **$87k/day**.
 - The model was trained months earlier. Every one of those tokens was inference.
 
-**Key point:** the gap between serving well and serving badly comes from a small number of engineering decisions. That gap is the job.
+> [!IMPORTANT]
+> The gap between serving well and serving badly comes from a small number of engineering decisions. That gap is the job.
 
 ## 2. What inference actually is
 
@@ -52,16 +54,10 @@ Running example: a chat app serving **Llama 3 8B on one H100**. The prompt is ~5
 ![H100 roofline](assets/01-what-is-inference-engineering/fig-05-roofline.png)
 *Batch-1 decode does about 1 FLOP per byte of weights read, far left of the ridge, so memory bandwidth sets its speed. Prefill sits past the ridge and is compute-bound.*
 
-```
-H100 HBM bandwidth   ≈ 3.35 TB/s
-Weights per step     = 16 GB
-Time per step        = 16 / 3350 s ≈ 4.8 ms
-Max tokens/s (1 user) ≈ 1 / 4.8 ms ≈ 200 tok/s
-```
+$$t_{\mathrm{step}} = \frac{16\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 4.8\ \mathrm{ms} \quad\Rightarrow\quad \frac{1}{4.8\ \mathrm{ms}} \approx 200\ \mathrm{tok/s}$$
 
-This is a hard ceiling, even with perfect code.
-
-- The chip could do far more math. The limit is **how fast bytes arrive**. Decode at batch 1 is **memory-bandwidth-bound**.
+> [!IMPORTANT]
+> This is a hard ceiling for one user, even with perfect code. The chip could do far more math; the limit is **how fast bytes arrive**. Decode at batch 1 is **memory-bandwidth-bound**.
 
 ## 4. The three numbers (and one constraint)
 
@@ -128,7 +124,8 @@ Every decode step streams all the weights once, so time per step is bytes moved 
 
 $$t_{\mathrm{step}} \approx \frac{2P\ \mathrm{bytes}}{\mathrm{BW}} = \frac{16\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 4.8\ \mathrm{ms} \quad\Rightarrow\quad \leq 200\ \mathrm{tok/s\ per\ user}$$
 
-Halve the bytes (8-bit weights) and the ceiling doubles. That's why precision is a speed lever.
+> [!TIP]
+> Halve the bytes (8-bit weights) and the ceiling doubles. That's why precision is a speed lever.
 
 #### 2. Memory-bound or compute-bound? Compare FLOPs per byte to the ridge ◆
 
@@ -181,7 +178,7 @@ $$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\ma
 | ◆ Max tok/s for 70B BF16 on 8×H100? | Derivation 1: 140 GB ÷ (8 × 3.35 TB/s) ≈ 5.2 ms/step, so ≤ ~190 tok/s before communication overhead. |
 | Cost too high: where do you start? | Measure (utilization, batch size, TTFT/ITL) before changing anything; then check off-GPU wins such as a smaller model, shorter prompts, caching. |
 
-### Traps to avoid
-
-- "Just call `generate()`" or "buy a faster GPU": both ignore the scheduler, memory and setup.
-- Trading away quality: a faster but worse answer is not a win.
+> [!WARNING]
+>
+> - "Just call `generate()`" or "buy a faster GPU": both ignore the scheduler, memory and setup.
+> - Trading away quality: a faster but worse answer is not a win.

@@ -28,7 +28,8 @@ Every decode step streams all the weights once, so time per step is bytes moved 
 
 $$t_{\mathrm{step}} \approx \frac{2P\ \mathrm{bytes}}{\mathrm{BW}} = \frac{16\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 4.8\ \mathrm{ms} \quad\Rightarrow\quad \leq 200\ \mathrm{tok/s\ per\ user}$$
 
-Halve the bytes (8-bit weights) and the ceiling doubles. That's why precision is a speed lever.
+> [!TIP]
+> Halve the bytes (8-bit weights) and the ceiling doubles. That's why precision is a speed lever.
 
 #### 2. Memory-bound or compute-bound? Compare FLOPs per byte to the ridge ◆
 
@@ -81,7 +82,7 @@ $$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\ma
 | ◆ Max tok/s for 70B BF16 on 8×H100? | Derivation 1: 140 GB ÷ (8 × 3.35 TB/s) ≈ 5.2 ms/step, so ≤ ~190 tok/s before communication overhead. |
 | Cost too high: where do you start? | Measure (utilization, batch size, TTFT/ITL) before changing anything; then check off-GPU wins such as a smaller model, shorter prompts, caching. |
 
-### Traps to avoid
-
-- "Just call `generate()`" or "buy a faster GPU": both ignore the scheduler, memory and setup.
-- Trading away quality: a faster but worse answer is not a win.
+> [!WARNING]
+>
+> - "Just call `generate()`" or "buy a faster GPU": both ignore the scheduler, memory and setup.
+> - Trading away quality: a faster but worse answer is not a win.
