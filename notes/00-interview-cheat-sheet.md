@@ -161,3 +161,69 @@ $$t_{\mathrm{cold}} \approx \frac{16\ \mathrm{GB}}{2\ \mathrm{GB/s}} = 8\ \mathr
 >
 > - Treating LLM serving like a stateless web app: round-robin routing and CPU-based autoscaling.
 > - Assuming the model file determines speed: it only defines the math.
+
+<div class="lesson-break"></div>
+
+## 03 · Levels of Inference Engineering
+
+[Full notes](03-levels-of-inference-engineering.md)
+
+
+### Say it in 30 seconds
+
+> Inference work sits on four levels: the user picks and calls models, the operator makes a model fit and stay up, the optimizer gets more tokens per GPU within latency targets, and the engine builder changes the engine itself. Each level is easier if you understand the one below. The key skill is finding which level a problem lives on; cheap fixes on lower levels often beat kernel work.
+
+### Only numbers worth memorizing
+
+- **DeepSeek-R1 (Feb 2025):** $0.55/M input, $2.19/M output (~4×), $0.14/M cached input.
+- **Llama 3 70B:** 140 GB at 16-bit, ~35 GB at 4-bit. **Batching measured:** MPT-7B/A100 0.9 → 12.5 req/s (~14×).
+
+### Derive, don't memorize
+
+#### 1. API bill = tokens × price, per token type
+
+Each token type has its own price, and a cached prefix bills at the cached rate:
+
+$$\mathrm{cost} = N_{\mathrm{cached}} \cdot p_{\mathrm{cached}} + N_{\mathrm{in}} \cdot p_{\mathrm{in}} + N_{\mathrm{out}} \cdot p_{\mathrm{out}} \quad\Rightarrow\quad \$2.42 \rightarrow \$1.19\ \mathrm{per\ 1k\ requests}$$
+
+> [!TIP]
+> Put stable text first (caches match prefixes ◆, so any change early in the prompt invalidates everything after it), and cap output length: output tokens cost ~4×.
+
+#### 2. Fit check = params × bytes per param vs GPU memory
+
+$$\mathrm{weights} = P \times \frac{\mathrm{bits}}{8}: \quad 70\mathrm{B} \times 2 = 140\ \mathrm{GB} > 80 \quad\Rightarrow\quad 2\ \mathrm{GPUs\ or\ 4\ bit}\ (35\ \mathrm{GB})$$
+
+> [!TIP]
+> "Fits" means weights plus KV cache at peak, not just weights. KV capacity: see 02, derivation 1.
+
+### The four levels
+
+| Level | Question | Controls | Example win |
+|---|---|---|---|
+| 1 · User | Which model, called how? | Model, prompt, output length, streaming, caching | Stable prefix first: bill ÷ 2 |
+| 2 · Operator | Does it fit and stay up? | GPUs, precision, startup, failover, rollouts | Day/night fleet sizing |
+| 3 · Optimizer | More per GPU within latency? | Batching, quantization, prefix caching, speculative decoding, PD split | ~14× from batching |
+| 4 · Engine builder | What should the engine do differently? | Schedulers, kernels, memory layout | Orca, FlashAttention, PagedAttention |
+
+### Symptom → which level
+
+| Symptom | Level | First fix |
+|---|---|---|
+| API bill high, same instructions every request | 1 | Identical block at the front for cache hits |
+| Model won't load on one GPU | 2 | Split across GPUs or quantize |
+| Fits at launch, out of memory at peak | 2 | Budget KV for peak concurrency |
+| Attention kernel dominates the profile | 4 | Kernel work (after levels 1–3 are exhausted) |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why do output tokens cost ~4× input? | Decode is serial and memory-bound; prefill is parallel (see 01, derivation 2). |
+| Why split prefill and decode onto separate machines? | ◆ Prefill is compute-bound, decode memory-bound; each group is tuned for its own job. |
+| What did Orca, FlashAttention, PagedAttention contribute? | Per-step scheduling (continuous batching); no big attention matrix in HBM; paged KV cache (vLLM). |
+| Is the engine builder the "senior" level? | No: levels aren't seniority, and most savings come from levels 1–3. |
+
+> [!WARNING]
+>
+> - Jumping to level 4 (kernels) before checking model choice, prompts and caching.
+> - Sizing memory for launch traffic instead of peak.
