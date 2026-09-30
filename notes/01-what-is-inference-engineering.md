@@ -107,38 +107,52 @@ Real-world evidence:
 
 ## Interview cheat sheet
 
-*Revise from this page alone. ★ = from the lesson; ◆ = my addition beyond the video.*
+*Revise from these pages alone. ◆ = my addition beyond the video; everything else is from the lesson.*
 
 ### Say it in 30 seconds
 
-> Inference is running a trained model to generate tokens, one at a time, for every request. Because it happens on every use, fleet-wide it costs more than training. Decode is limited by memory bandwidth, since every step streams all the weights to make one token per sequence. So the core trade is latency vs throughput vs cost, and batching is the first lever. The job is a loop: measure, find the bottleneck, change one thing, measure again.
+> Inference is running a trained model token by token for every request, so fleet-wide it costs more than training. Decode is memory-bandwidth-bound: every step streams all the weights to make one token per sequence. The core trade is latency vs throughput vs cost, and batching is lever one. The job: measure, find the bottleneck, change one thing, repeat.
 
-### Numbers to memorize
+### Only numbers worth memorizing
 
-| | Number | Why it matters |
-|---|---|---|
-| ★ | H100 HBM bandwidth **3.35 TB/s** | Sets decode speed |
-| ◆ | H100 BF16 dense **~989 TFLOPS** | Sets prefill speed |
-| ◆ | H100 ridge point **~300 FLOPs/byte** | Below it you're memory-bound |
-| ★ | Llama 3 8B in BF16 = **16 GB** | Read in full on every decode step |
-| ◆ | Llama 3 8B KV cache **~128 KB/token** | Caps how many users fit in a batch |
-| ★ | Batch-1 decode ceiling **~4.8 ms/step, ~200 tok/s** | Best case for one user on one H100 |
-| ★ | **$4.17 vs $0.28** per 1M tokens | Batching gives ~15× cheaper tokens |
-| ★ | vLLM vs HF Transformers: up to **24×** throughput | Serving software matters as much as hardware |
-| ★ | DeepSeek: **~14.8k tok/s** per 8-GPU node, **20–22 tok/s** per user | High throughput and good latency together |
-| ★ | Google ML energy: **~3/5 inference** | "Train once, serve forever" |
+- **H100:** 3.35 TB/s HBM, ◆ ~989 TFLOPS BF16. **Llama 3 8B:** 16 GB in BF16, ◆ ~128 KB KV per token.
+- **Software matters:** batching gives ~15× cheaper tokens; vLLM gets up to 24× naive HF throughput.
 
-### Formulas
+### Derive, don't memorize
 
-| | Quantity | Formula | Example (Llama 3 8B, H100) |
-|---|---|---|---|
-| ★ | Weight bytes | params × bytes/param | 8B × 2 = 16 GB (INT8: 8, INT4: ~4) |
-| ★ | Decode step time (batch 1) | weight bytes ÷ bandwidth | 16 GB ÷ 3.35 TB/s ≈ 4.8 ms |
-| ★ | Cost per 1M tokens | $/GPU-h ÷ (tok/s × 3600) × 10⁶ | $3 ÷ (200 × 3600) × 10⁶ ≈ $4.17 |
-| ◆ | FLOPs per token | ≈ 2 × params | ≈ 16 GFLOPs |
-| ◆ | Arithmetic intensity (decode) | ≈ batch size FLOPs/byte (ignoring KV) | batch 1 ≈ 1, far below ~300 |
-| ◆ | Prefill time (ideal) | prompt × 2 × params ÷ peak FLOPS | 500 × 16 GF ÷ 989 TF ≈ 8 ms |
-| ◆ | KV bytes per token | 2 × layers × kv_heads × head_dim × bytes | 2 × 32 × 8 × 128 × 2 = 128 KB |
+Let *P* = parameters, *B* = batch size, *BW* = memory bandwidth.
+
+#### 1. Decode speed = bandwidth ÷ bytes per step
+
+Every decode step streams all the weights once, so time per step is bytes moved over bytes per second.
+
+$$t_{\mathrm{step}} \approx \frac{2P\ \mathrm{bytes}}{\mathrm{BW}} = \frac{16\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 4.8\ \mathrm{ms} \quad\Rightarrow\quad \leq 200\ \mathrm{tok/s\ per\ user}$$
+
+Halve the bytes (8-bit weights) and the ceiling doubles. That's why precision is a speed lever.
+
+#### 2. Memory-bound or compute-bound? Compare FLOPs per byte to the ridge ◆
+
+Each weight does a multiply and an add (2 FLOPs) per token and costs 2 bytes to read. One read is shared by all *B* sequences:
+
+$$\frac{\mathrm{FLOPs}}{\mathrm{byte}} \approx \frac{2P \cdot B}{2P} = B \qquad\mathrm{vs}\qquad \mathrm{ridge} = \frac{989\ \mathrm{TFLOPS}}{3.35\ \mathrm{TB/s}} \approx 300$$
+
+Batch 1 gives ~1, far below 300, so decode is memory-bound and batching is nearly free speed. Prefill puts ~500 prompt tokens through one read, above the ridge, so it's compute-bound:
+
+$$t_{\mathrm{prefill}} \approx \frac{N_{\mathrm{prompt}} \cdot 2P}{\mathrm{peak\ FLOPS}} = \frac{500 \times 16\ \mathrm{GFLOP}}{989\ \mathrm{TFLOPS}} \approx 8\ \mathrm{ms}$$
+
+#### 3. Cost = what you pay per hour ÷ what you make per hour
+
+$$\frac{\$}{1\mathrm{M\ tokens}} = \frac{\$\ \mathrm{per\ GPU\ hour}}{\mathrm{tok/s} \times 3600} \times 10^{6} \qquad \frac{3}{200 \times 3600} \times 10^{6} \approx 4.17 \qquad \frac{3}{3000 \times 3600} \times 10^{6} \approx 0.28$$
+
+#### 4. Why batching isn't free: every sequence brings its own KV cache ◆
+
+Each layer stores one K and one V vector per KV head for every past token:
+
+$$\mathrm{KV/token} = 2 \times L \times H_{\mathrm{kv}} \times d_{\mathrm{head}} \times \mathrm{bytes} = 2 \times 32 \times 8 \times 128 \times 2 = 128\ \mathrm{KB}$$
+
+A step reads the weights once plus every sequence's cache (context length *C*), so steps slow down as the batch grows:
+
+$$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\mathrm{BW}}$$
 
 ### Prefill vs decode
 
@@ -153,28 +167,21 @@ Real-world evidence:
 
 | Symptom | Likely cause | First levers |
 |---|---|---|
-| High $/token, GPU underused | Batch too small | ★ Scheduling / continuous batching |
-| Batch capped by out-of-memory | KV cache fills memory | ★ Memory: pack KV tightly, reuse shared prefixes |
-| Slow per-token speed at low load | Too many weight bytes per step | ★ Precision: 8/4-bit weights |
-| High TTFT | Long prompts or queueing | ★ Shorter prompts, prefix reuse, ★ more replicas (fleet) |
-| Model doesn't fit one GPU | Size | ★ Parallelism across GPUs, ★ precision |
-| Kernel time dominated by memory traffic | Unfused ops | ★ Kernels: fuse operations |
-| Any of the above | | ★ Off-GPU wins: smaller model, cached answers |
+| High $/token, GPU underused | Batch too small | Scheduling: batch more requests per step |
+| Batch capped by out-of-memory | KV cache fills memory | Memory: pack KV tightly, reuse shared prefixes |
+| Slow tokens even at low load | Too many weight bytes per step | Precision: 8/4-bit weights |
+| High TTFT | Long prompts or queueing | Shorter prompts, prefix reuse, more replicas |
+| Model doesn't fit one GPU | Size | Parallelism across GPUs, or precision |
 
 ### Rapid-fire Q&A
 
 | Question | Crisp answer |
 |---|---|
-| Why is decode memory-bound? | Each step streams all the weights to make one token per sequence: ~1 FLOP/byte vs a ~300 ridge. |
-| Why does batching help? | One weight read serves every sequence in the batch, raising FLOPs per byte. |
-| What does batching cost? | Per-user latency rises (bigger steps, more KV reads) and KV memory grows. |
-| ◆ Max tok/s for 70B BF16 on 8×H100 (tensor parallel)? | 140 GB ÷ 26.8 TB/s ≈ 5.2 ms/step, so ≤ ~190 tok/s. Real is lower (communication, KV). |
-| Cost too high: where do you start? | Measure utilization, batch size, TTFT/ITL percentiles, then fix the biggest bottleneck first. |
-| Will a faster GPU fix a slow service? | Not if the setup is bad: one request at a time just idles faster. |
+| Why does batching help, and what does it cost? | One weight read serves all *B* sequences. The cost is KV memory and slower steps (derivation 4). |
+| ◆ Max tok/s for 70B BF16 on 8×H100? | Derivation 1: 140 GB ÷ (8 × 3.35 TB/s) ≈ 5.2 ms/step, so ≤ ~190 tok/s before communication overhead. |
+| Cost too high: where do you start? | Measure (utilization, batch size, TTFT/ITL) before changing anything; then check off-GPU wins such as a smaller model, shorter prompts, caching. |
 
 ### Traps to avoid
 
-- Saying inference is "just `generate()`": it hides a scheduler, memory manager, kernels and server.
-- Treating quality as tradeable: a faster but worse answer is not a win.
-- Forgetting batching's cost: KV memory and per-user latency.
-- Jumping to kernel tuning before checking model size, prompt length and caching.
+- "Just call `generate()`" or "buy a faster GPU": both ignore the scheduler, memory and setup.
+- Trading away quality: a faster but worse answer is not a win.
