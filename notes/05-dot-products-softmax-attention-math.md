@@ -131,14 +131,14 @@ Let *L* = layers, *H* = heads, *d* = head dim, *n* = context length.
 $$\mathrm{ops} \approx L \cdot H_{q} \cdot n \cdot 2d \cdot 2 = 32 \cdot 32 \cdot 4096 \cdot 256 \cdot 2 \approx 2.1\ \mathrm{B} \quad (\mathrm{vs} \approx 15\ \mathrm{B\ for\ weights})$$
 
 > [!TIP]
-> The final ×2 = scores + weighted sum of values. Weights: 2 ops per non-embedding param, 2 × 7.5B ≈ 15B (the embedding table is a lookup).
+> The final ×2 = scores + weighted sum of values. Where the weights' ~15B comes from: see 07, derivation 2.
 
 #### 2. KV bytes per token: one K and one V per KV head per layer
 
 $$\mathrm{KV/token} = 2 \cdot L \cdot H_{\mathrm{kv}} \cdot d \cdot \mathrm{bytes} = 2 \cdot 32 \cdot 8 \cdot 128 \cdot 2 = 128\ \mathrm{KB} \quad \Rightarrow \quad \frac{2.1\ \mathrm{B\ ops}}{4096 \times 128\ \mathrm{KB}} \approx 4\ \mathrm{ops/byte}$$
 
 > [!TIP]
-> 4 ≪ ~300 ridge (01, derivation 2): memory-bound. K/V matches the 16 GB weights at 16 GB ÷ 128 KB ≈ 122k tokens for one user, or ~4k each for 32 users. GQA's 8 KV heads instead of 32 cut this 4× ◆.
+> 4 ≪ ~300 ridge (01, derivation 2): memory-bound. K/V matches the 16 GB weights at 16 GB ÷ 128 KB ≈ 122k tokens for one user, or ~4k each for 32 users. GQA's 8 KV heads instead of 32 cut this 4× (Llama 2 7B: 512 KB/token, see 07).
 
 #### 3. Prefill scores = n² per head
 

@@ -320,14 +320,14 @@ Let *L* = layers, *H* = heads, *d* = head dim, *n* = context length.
 $$\mathrm{ops} \approx L \cdot H_{q} \cdot n \cdot 2d \cdot 2 = 32 \cdot 32 \cdot 4096 \cdot 256 \cdot 2 \approx 2.1\ \mathrm{B} \quad (\mathrm{vs} \approx 15\ \mathrm{B\ for\ weights})$$
 
 > [!TIP]
-> The final ×2 = scores + weighted sum of values. Weights: 2 ops per non-embedding param, 2 × 7.5B ≈ 15B (the embedding table is a lookup).
+> The final ×2 = scores + weighted sum of values. Where the weights' ~15B comes from: see 07, derivation 2.
 
 #### 2. KV bytes per token: one K and one V per KV head per layer
 
 $$\mathrm{KV/token} = 2 \cdot L \cdot H_{\mathrm{kv}} \cdot d \cdot \mathrm{bytes} = 2 \cdot 32 \cdot 8 \cdot 128 \cdot 2 = 128\ \mathrm{KB} \quad \Rightarrow \quad \frac{2.1\ \mathrm{B\ ops}}{4096 \times 128\ \mathrm{KB}} \approx 4\ \mathrm{ops/byte}$$
 
 > [!TIP]
-> 4 ≪ ~300 ridge (01, derivation 2): memory-bound. K/V matches the 16 GB weights at 16 GB ÷ 128 KB ≈ 122k tokens for one user, or ~4k each for 32 users. GQA's 8 KV heads instead of 32 cut this 4× ◆.
+> 4 ≪ ~300 ridge (01, derivation 2): memory-bound. K/V matches the 16 GB weights at 16 GB ÷ 128 KB ≈ 122k tokens for one user, or ~4k each for 32 users. GQA's 8 KV heads instead of 32 cut this 4× (Llama 2 7B: 512 KB/token, see 07).
 
 #### 3. Prefill scores = n² per head
 
@@ -431,3 +431,69 @@ $$\mathrm{SE} = \frac{\sigma}{\sqrt{n}} = \frac{0.8}{\sqrt{5}} \approx 0.4 \qqua
 >
 > - Reporting only the mean for a long-tailed latency distribution.
 > - Quoting P99 from a few hundred requests without saying so.
+
+<div class="lesson-break"></div>
+
+## 07 · Transformer Architecture Refresher
+
+[Full notes](07-transformer-architecture-refresher.md)
+
+
+### Say it in 30 seconds
+
+> A decoder transformer is an embedding lookup, a stack of identical blocks with attention and an MLP adding onto a residual stream, and an LM head over the vocabulary. From the config you can count parameters (Llama 3 8B: 8.03B, 70% in MLPs), turn them into bytes with the precision, and estimate ~2 ops per non-embedding parameter per token. The KV cache, set by the number of KV heads, is the line that grows. MoE, GQA and RoPE each move one line of that bill.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B config:** hidden 4,096 · MLP 14,336 · 32 layers · 32 heads · 8 KV heads · vocab 128,256 · bf16.
+- **Shares:** MLP 70%, attention 17%, embedding + head 13%. **Mixtral 8x7B:** 46.7B stored, 12.9B active.
+
+### Derive, don't memorize
+
+Let *h* = hidden, *i* = MLP size, *V* = vocab, *L* = layers, *H*ₖᵥ·*d* = KV width (8 × 128 = 1,024).
+
+#### 1. Parameters from the config
+
+$$\mathrm{block} = 2h^{2} + 2h \cdot H_{\mathrm{kv}} d + 3hi \qquad N = L \cdot \mathrm{block} + 2Vh = 32 \times 218\mathrm{M} + 2 \times 525\mathrm{M} \approx 8.03\mathrm{B}$$
+
+The three terms are Q and O (*h* × *h*), K and V (*h* × *H*ₖᵥ*d*), and the three MLP matrices (*h* × *i*).
+
+> [!TIP]
+> The 2*Vh* assumes an untied LM head (Llama 3 8B). If embeddings are tied ◆, count *Vh* once.
+
+#### 2. Ops per token = 2 × non-embedding parameters
+
+$$2 \times (8.03\mathrm{B} - 0.53\mathrm{B}) \approx 15\mathrm{B\ ops/token}$$
+
+$$\mathrm{prefill\ 500\ tokens} = 7.5\mathrm{T\ ops\ per\ weight\ read} \qquad \mathrm{decode} \approx \frac{15\mathrm{B\ ops}}{16\ \mathrm{GB}} \approx 1\ \mathrm{op/byte}$$
+
+#### 3. MoE splits memory from compute
+
+$$\mathrm{memory} \propto N_{\mathrm{total}} = 46.7\mathrm{B} \qquad \mathrm{ops/token} \approx 2 N_{\mathrm{active}} = 2 \times 12.9\mathrm{B}$$
+
+> [!TIP]
+> ◆ In BF16 that's ~93 GB to host but only ~26B ops per token. KV per token comes straight from the config too: see 05, derivation 2.
+
+### Swap → which line of the bill
+
+| Swap | Weight memory | Ops per token | KV cache | Context |
+|---|---|---|---|---|
+| Mixture of experts | ↑ all experts | ↓ only active | | |
+| Fewer KV heads / compressed K,V | | | ↓ | |
+| RoPE positions | | | | ↑ (Llama 3.1: 128k) |
+| Lower precision | ↓ bytes | | | |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Where do most parameters live? | MLPs (~70%); > 4× attention per block. |
+| Does 8B params mean 16 GB is enough? | No: weights are the floor; KV cache and working memory add on top. |
+| Which parameters cost no compute? | The embedding lookup, and idle experts in MoE. |
+| Why did Llama 3 use 8 KV heads? | GQA cuts the cache 4× vs Llama 2 7B (128 vs 512 KB/token). |
+| Why quantize MLPs first? | They hold most bytes, and decode time ∝ bytes read. |
+
+> [!WARNING]
+>
+> - Equating parameter count with required memory.
+> - Assuming MoE is cheap to host because it's cheap per token.
