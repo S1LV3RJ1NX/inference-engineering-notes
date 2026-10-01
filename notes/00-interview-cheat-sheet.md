@@ -176,7 +176,7 @@ $$t_{\mathrm{cold}} \approx \frac{16\ \mathrm{GB}}{2\ \mathrm{GB/s}} = 8\ \mathr
 ### Only numbers worth memorizing
 
 - **DeepSeek-R1 (Feb 2025):** $0.55/M input, $2.19/M output (~4×), $0.14/M cached input.
-- **Llama 3 70B:** 140 GB at 16-bit, ~35 GB at 4-bit. **Batching measured:** MPT-7B/A100 0.9 → 12.5 req/s (~14×).
+- **Batching measured:** MPT-7B/A100 0.9 → 12.5 req/s (~14×).
 
 ### Derive, don't memorize
 
@@ -189,12 +189,7 @@ $$\mathrm{cost} = N_{\mathrm{cached}} \cdot p_{\mathrm{cached}} + N_{\mathrm{in}
 > [!TIP]
 > Put stable text first (caches match prefixes ◆, so any change early in the prompt invalidates everything after it), and cap output length: output tokens cost ~4×.
 
-#### 2. Fit check = params × bytes per param vs GPU memory
-
-$$\mathrm{weights} = P \times \frac{\mathrm{bits}}{8}: \quad 70\mathrm{B} \times 2 = 140\ \mathrm{GB} > 80 \quad\Rightarrow\quad 2\ \mathrm{GPUs\ or\ 4\ bit}\ (35\ \mathrm{GB})$$
-
-> [!TIP]
-> "Fits" means weights plus KV cache at peak, not just weights. KV capacity: see 02, derivation 1.
+The operator's fit check (params × bytes per param vs GPU memory): see 04, derivation 1.
 
 ### The four levels
 
@@ -227,3 +222,66 @@ $$\mathrm{weights} = P \times \frac{\mathrm{bits}}{8}: \quad 70\mathrm{B} \times
 >
 > - Jumping to level 4 (kernels) before checking model choice, prompts and caching.
 > - Sizing memory for launch traffic instead of peak.
+
+<div class="lesson-break"></div>
+
+## 04 · Math for Memory, Throughput & Speedups
+
+[Full notes](04-math-for-memory-throughput-speedups.md)
+
+
+### Say it in 30 seconds
+
+> Every number is an amount, a rate or a ratio, and time = amount ÷ rate. Weight memory is params × bytes per param, so precision is the first lever for fit. Divide bytes by bandwidth and FLOPs by FLOPS to get floors; real runs land above them. Latency and throughput are reciprocals only for one stream. Speedups are before ÷ after, and Amdahl's law caps them by the fraction of time touched.
+
+### Only numbers worth memorizing
+
+- **Bytes per param:** FP32 4, BF16 2, FP8 1, INT4 0.5. **1 GiB ≈ 1.074 GB** (16 GB = 14.9 GiB).
+
+### Derive, don't memorize
+
+#### 1. Weights = params × bytes per param; check fit first
+
+$$\mathrm{weights} = N \times \frac{\mathrm{bits}}{8}: \quad 70\mathrm{B} \rightarrow 140\ (\mathrm{BF16}),\ 70\ (\mathrm{FP8}),\ 35\ (\mathrm{INT4})\ \mathrm{GB}\ \mathrm{vs}\ 80\ \mathrm{GB}$$
+
+> [!TIP]
+> "Fits" means weights + KV cache at peak + runtime (KV capacity: see 02, derivation 1). Too big: split across GPUs or quantize.
+
+#### 2. Time = amount ÷ rate, and the slower floor wins ◆
+
+Each token must both move bytes and do math; whichever takes longer sets the floor:
+
+$$t \geq \max\left(\frac{\mathrm{bytes}}{\mathrm{BW}},\ \frac{\mathrm{FLOPs}}{\mathrm{FLOPS}}\right) \quad 70\mathrm{B\ FP8}: \frac{70}{3350} \approx 21\ \mathrm{ms} \qquad \mathrm{INT4}: \approx 10\ \mathrm{ms}$$
+
+> [!TIP]
+> A measurement below the floor means an assumption broke (fewer bytes moved, or a bad measurement). Why bytes usually win: see 01, derivation 2.
+
+#### 3. Speedup = before ÷ after; Amdahl caps it
+
+$$S = \frac{t_{\mathrm{before}}}{t_{\mathrm{after}}} \qquad S_{\mathrm{overall}} = \frac{1}{(1-p) + p/s} \leq \frac{1}{1-p}$$
+
+> [!TIP]
+> "x% faster" = 1 + x; "x% less time" = 1 / (1 − x). 30% of a step made 3× faster gives 1.25×; infinitely faster gives 1.43×.
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Tool shows 14.9 for a 16 GB file | GiB vs GB, not a bug |
+| Measured faster than the bandwidth floor | Fewer bytes moved than assumed, or a broken measurement |
+| Kernel 3× faster, end to end barely moves | Small *p*: Amdahl |
+| "1,800 tok/s" but users say it's slow | Throughput across many streams; ask per-stream speed |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| FLOPs vs FLOPS? | Count (what a model costs) vs per second (what a GPU supplies). |
+| Why are napkin numbers floors? | Datasheet peaks are never sustained, so real runs are slower. |
+| 20 ms → 15 ms: how much faster? | 1.33× (25% less time), not 1.25×. |
+| Is a throughput gain a latency gain? | Only for one stream; with batching they decouple. |
+
+> [!WARNING]
+>
+> - Adding speedups ("2× + 2× = 4×"): compose by time accounting instead.
+> - Quoting a speed floor for a model that doesn't fit.

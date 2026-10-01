@@ -103,7 +103,7 @@ Underneath all four levels is the same arithmetic: **how many bytes, how many op
 ### Only numbers worth memorizing
 
 - **DeepSeek-R1 (Feb 2025):** $0.55/M input, $2.19/M output (~4×), $0.14/M cached input.
-- **Llama 3 70B:** 140 GB at 16-bit, ~35 GB at 4-bit. **Batching measured:** MPT-7B/A100 0.9 → 12.5 req/s (~14×).
+- **Batching measured:** MPT-7B/A100 0.9 → 12.5 req/s (~14×).
 
 ### Derive, don't memorize
 
@@ -116,12 +116,7 @@ $$\mathrm{cost} = N_{\mathrm{cached}} \cdot p_{\mathrm{cached}} + N_{\mathrm{in}
 > [!TIP]
 > Put stable text first (caches match prefixes ◆, so any change early in the prompt invalidates everything after it), and cap output length: output tokens cost ~4×.
 
-#### 2. Fit check = params × bytes per param vs GPU memory
-
-$$\mathrm{weights} = P \times \frac{\mathrm{bits}}{8}: \quad 70\mathrm{B} \times 2 = 140\ \mathrm{GB} > 80 \quad\Rightarrow\quad 2\ \mathrm{GPUs\ or\ 4\ bit}\ (35\ \mathrm{GB})$$
-
-> [!TIP]
-> "Fits" means weights plus KV cache at peak, not just weights. KV capacity: see 02, derivation 1.
+The operator's fit check (params × bytes per param vs GPU memory): see 04, derivation 1.
 
 ### The four levels
 
