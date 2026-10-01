@@ -497,3 +497,66 @@ $$\mathrm{memory} \propto N_{\mathrm{total}} = 46.7\mathrm{B} \qquad \mathrm{ops
 >
 > - Equating parameter count with required memory.
 > - Assuming MoE is cheap to host because it's cheap per token.
+
+<div class="lesson-break"></div>
+
+## 08 · Generate & Stream Your First Tokens
+
+[Full notes](08-generate-and-stream-your-first-tokens.md)
+
+
+### Say it in 30 seconds
+
+> A chat request is templated into a token sequence ending in an assistant header, the generation prompt. generate() then loops one forward pass per token: the first pass prefills the whole prompt and caches K/V (the pause, TTFT); each later pass reads all weights for one token (the pace, TPOT). Streaming is a put() hook on that loop, holding back partial words. It stops on an EOS token, a stop string or max_new_tokens. Measure tokens/s from generated tokens only, with the GPU synchronized.
+
+### Only numbers worth memorizing
+
+- **Llama 3.1 defaults:** 3 EOS ids, do_sample on, temperature 0.6, top-p 0.9. **Transformers `max_new_tokens`:** 20 if unset.
+
+### Derive, don't memorize
+
+#### 1. Request time = the pause + the pace × remaining tokens ◆
+
+$$t_{\mathrm{request}} \approx \mathrm{TTFT} + (N_{\mathrm{out}} - 1) \cdot \mathrm{TPOT} \approx 0.31\ \mathrm{s} + 59 \times 5.3\ \mathrm{ms} \approx 0.62\ \mathrm{s}$$
+
+> [!TIP]
+> TTFT grows with prompt length (prefill); TPOT's floor is weight bytes ÷ bandwidth (01, derivation 1). Long prompts hurt the pause; big models hurt the pace.
+
+#### 2. Reported tokens/s = generated tokens ÷ time since the first token
+
+$$\frac{60}{0.316\ \mathrm{s}} \approx 190\ \mathrm{tok/s} \qquad \mathrm{counting\ the\ prompt}: \frac{90}{0.316} \approx 285\ (1.5\times\ \mathrm{too\ high})$$
+
+> [!TIP]
+> Without a GPU sync the timer stops early and the rate looks absurdly high: synchronize or use CUDA events.
+
+### Streamer options
+
+| | TextStreamer | TextIteratorStreamer |
+|---|---|---|
+| Output | Prints to stdout | Pushes text into a queue |
+| Use | Notebooks, CLI | Servers: read without blocking the loop |
+| Shared behavior | `put()` per token; holds back after the last space; flushes on newline | Same |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Answer cut off mid-sentence | `max_new_tokens` unset (default 20) |
+| Model continues writing the user's question | Missing generation prompt (◆ `add_generation_prompt=True`) |
+| Stream lags the model by a word | Hold-back by design, not a bug |
+| tokens/s implausibly high | Counted the prompt, or no GPU sync |
+| Same prompt, different answers | Sampling is on by default (temperature 0.6, top-p 0.9) |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| What's the generation prompt? | The trailing assistant header that cues the reply. |
+| Why is the first token slow? | It runs prefill over the whole prompt and fills the KV cache. |
+| Does streaming speed up generation? | No: it changes when you see tokens, not when they're made. |
+| Why hold back text after the last space? | The next token can change how a partial word decodes. |
+
+> [!WARNING]
+>
+> - Timing `generate()` with a plain stopwatch and no GPU sync.
+> - Leaving `max_new_tokens` unset in production.
