@@ -365,3 +365,69 @@ $$m' = \max(m, m_{\mathrm{blk}}) \qquad l' = l \cdot e^{m - m'} + \sum_{\mathrm{
 >
 > - Counting attention FLOPs instead of K/V bytes for decode.
 > - Calling softmax "cheap": its whole-row dependency dictates kernel design.
+
+<div class="lesson-break"></div>
+
+## 06 · Probability, Sampling & Benchmark Statistics
+
+[Full notes](06-probability-sampling-benchmark-statistics.md)
+
+
+### Say it in 30 seconds
+
+> Each generated token is a random draw from the model's distribution, so reply text and length vary and latency becomes a long-tailed distribution. Report P50, P95 and P99, not the mean, and state the sample count: you need about 100 samples beyond a percentile for ~10% precision. Many calls per task amplify the tail. Treat a speedup as real only if it exceeds run-to-run noise, measured with the standard error σ/√n.
+
+### Only numbers worth memorizing
+
+- **Samples for ±10%:** P50 → 200, P95 → 2,000, P99 → 10,000 requests. **10 calls at P99:** ~9.6% of tasks hit the tail.
+
+### Derive, don't memorize
+
+#### 1. Tail amplification: chance at least one of *k* calls lands in the slowest fraction *q*
+
+$$P = 1 - (1 - q)^{k} = 1 - 0.99^{10} \approx 9.6\%$$
+
+> [!TIP]
+> For small *q*, P ≈ *k*·*q* ◆. An agent making 50 calls hits a P99-slow call ~40% of the time: set per-call targets at a high percentile.
+
+#### 2. Samples needed: ~100 beyond the percentile, error ≈ 1/√100
+
+$$n \approx \frac{100}{1 - p} \qquad \mathrm{P99}: \frac{100}{0.01} = 10000 \qquad \mathrm{error} \approx \frac{1}{\sqrt{100}} = 10\%$$
+
+#### 3. Noise band: standard error shrinks with √n
+
+$$\mathrm{SE} = \frac{\sigma}{\sqrt{n}} = \frac{0.8}{\sqrt{5}} \approx 0.4 \qquad \mathrm{band}_{\mathrm{diff}} \approx 2 \times \sqrt{2} \times \mathrm{SE} \approx \pm 1.0$$
+
+> [!TIP]
+> ◆ √2 because both averages are noisy; ×2 for ~95% confidence. 4× the runs halves the band. 0.7 < 1.0: not proven.
+
+### Mean vs median vs percentiles
+
+| | Mean | Median (P50) | P95 / P99 |
+|---|---|---|---|
+| Tells you | Average cost (capacity math) ◆ | The typical request | The tail users complain about |
+| Long tail effect | Dragged right (1.3 vs 1.1 s) | Unaffected | Is the tail |
+| Samples needed | Few | ~200 | ~2,000 / ~10,000 |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Mean latency fine, users complain | Long tail: look at P95/P99 |
+| P99 jumps between identical reruns | Too few samples beyond P99 |
+| "2% faster" from one run each | Compare to run-to-run noise first |
+| Same prompt, very different request times | Sampled reply lengths differ |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why does the same prompt give different outputs? | Each token is a random draw from a distribution. |
+| Why are SLOs written as percentiles? | The tail is what users feel, and multi-call tasks amplify it. |
+| How do you know a speedup is real? | Repeat runs; the difference must exceed the noise band. |
+| ◆ How do temperature / top-p relate? | They reshape or truncate the distribution before the draw. |
+
+> [!WARNING]
+>
+> - Reporting only the mean for a long-tailed latency distribution.
+> - Quoting P99 from a few hundred requests without saying so.
