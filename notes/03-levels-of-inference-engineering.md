@@ -1,6 +1,6 @@
 # 03 · Levels of Inference Engineering
 
-**Source:** [fanout.sh / inference-eng / in-04](https://fanout.sh/inference-eng/curriculum/in-04) · ~9 min · Next: *Math for memory, throughput and speedups*
+**Source:** [fanout.sh / inference-eng / in-04](https://fanout.sh/inference-eng/curriculum/in-04) · ~9 min
 
 > [!NOTE]
 > "Inference engineering" covers four very different jobs, best seen as a ladder: **user**, **operator**, **optimizer**, **engine builder**. Each level asks its own question, and each is easier once you understand the level below. The levels aren't job titles or seniority, and higher isn't better: most money is saved on the first three. The key skill is spotting which level a problem is really on.

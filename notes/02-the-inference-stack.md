@@ -1,6 +1,6 @@
 # 02 · The Inference Stack: Model to GPU to Production
 
-**Source:** [fanout.sh / inference-eng / in-03](https://fanout.sh/inference-eng/curriculum/in-03) · ~9 min · Next: *Math for memory, throughput and speedups*
+**Source:** [fanout.sh / inference-eng / in-03](https://fanout.sh/inference-eng/curriculum/in-03) · ~9 min
 
 > [!NOTE]
 > Between pressing Enter and seeing the first word (~0.5 s), a request crosses about **8 layers** of software and hardware. Each layer exists to answer one question the others can't. The model says **what** to compute; kernels and the GPU decide **how fast**; the engine decides **who runs each step and where their memory goes**; the server and fleet decide **which replica, and how many**. The rest of the course climbs this map.

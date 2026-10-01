@@ -1,6 +1,6 @@
 # 04 · Math for Memory, Throughput & Speedups
 
-**Source:** [fanout.sh / inference-eng / 00-01](https://fanout.sh/inference-eng/curriculum/00-01) · ~8 min · Next: *Vectors, matrices and tensors*
+**Source:** [fanout.sh / inference-eng / 00-01](https://fanout.sh/inference-eng/curriculum/00-01) · ~8 min
 
 > [!NOTE]
 > Almost every number in inference is an **amount** (16 GB), a **rate** (3.35 TB/s) or a **ratio** (1.25×). With careful units and one identity, **time = amount ÷ rate**, you can answer three questions before touching hardware: does the model fit, how fast can it possibly run, and what is a claimed speedup really worth.

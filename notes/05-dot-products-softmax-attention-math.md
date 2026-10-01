@@ -1,6 +1,6 @@
 # 05 · Dot Products, Softmax & Attention Math
 
-**Source:** [fanout.sh / inference-eng / 00-03](https://fanout.sh/inference-eng/curriculum/00-03) · ~11 min · Next: *Probability, sampling and benchmark statistics*
+**Source:** [fanout.sh / inference-eng / 00-03](https://fanout.sh/inference-eng/curriculum/00-03) · ~11 min
 
 > [!NOTE]
 > To write one new token at 4,096 tokens of context, Llama 3 8B's attention does about **4.2 million dot products** (~2.1B operations) but must read about **0.5 GB** of stored keys and values. That's ~4 operations per byte, far below the ~300 an H100 needs, so **decode attention is memory-bound**. The K/V data grows with every token and every user until it outweighs the model. Softmax needs the whole row, which is why fast kernels use a running (online) softmax.
