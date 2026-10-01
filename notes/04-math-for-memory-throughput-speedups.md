@@ -90,7 +90,19 @@ $$S = \frac{1}{(1 - p) + p/s} \qquad \lim_{s \rightarrow \infty} S = \frac{1}{1 
 
 ### Only numbers worth memorizing
 
-- **Bytes per param:** FP32 4, BF16 2, FP8 1, INT4 0.5. **1 GiB ≈ 1.074 GB** (16 GB = 14.9 GiB).
+- **Bytes per param:** FP32 4, BF16 2, FP8 1, INT4 0.5.
+
+### Byte units: decimal vs binary
+
+| Decimal (SI) | Bytes | Binary (IEC) | Bytes | Binary ÷ decimal |
+|---|---|---|---|---|
+| 1 KB | 10³ = 1,000 | 1 KiB | 2¹⁰ = 1,024 | 1.024 |
+| 1 MB | 10⁶ | 1 MiB | 2²⁰ = 1024² ≈ 1.049 × 10⁶ | 1.049 |
+| 1 GB | 10⁹ | 1 GiB | 2³⁰ = 1024³ ≈ 1.074 × 10⁹ | 1.074 |
+| 1 TB | 10¹² | 1 TiB | 2⁴⁰ = 1024⁴ ≈ 1.100 × 10¹² | 1.100 |
+
+- **GB → GiB:** divide by 1.074. 16 GB = **14.9 GiB**; an 80 GB H100 = **74.5 GiB**.
+- ◆ Datasheet rates are decimal: **1 TB/s = 1 GB/ms = 1 MB/µs**, so 3.35 TB/s moves 16 GB in 16 ÷ 3.35 ≈ 4.8 ms.
 
 ### Derive, don't memorize
 
