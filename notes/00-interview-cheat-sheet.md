@@ -319,6 +319,9 @@ Let *L* = layers, *H* = heads, *d* = head dim, *n* = context length.
 
 $$\mathrm{ops} \approx L \cdot H_{q} \cdot n \cdot 2d \cdot 2 = 32 \cdot 32 \cdot 4096 \cdot 256 \cdot 2 \approx 2.1\ \mathrm{B} \quad (\mathrm{vs} \approx 15\ \mathrm{B\ for\ weights})$$
 
+> [!TIP]
+> The final ×2 = scores + weighted sum of values. Weights: 2 ops per non-embedding param, 2 × 7.5B ≈ 15B (the embedding table is a lookup).
+
 #### 2. KV bytes per token: one K and one V per KV head per layer
 
 $$\mathrm{KV/token} = 2 \cdot L \cdot H_{\mathrm{kv}} \cdot d \cdot \mathrm{bytes} = 2 \cdot 32 \cdot 8 \cdot 128 \cdot 2 = 128\ \mathrm{KB} \quad \Rightarrow \quad \frac{2.1\ \mathrm{B\ ops}}{4096 \times 128\ \mathrm{KB}} \approx 4\ \mathrm{ops/byte}$$

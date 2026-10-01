@@ -53,6 +53,14 @@ Work: ~**1M ops** for the scores + ~**1M ops** for the weighted sum = **~2M ops 
 
 Scale to the whole model: **32 layers × 32 query heads × 4,096 = 4,194,304 dot products ≈ 2.1B operations**. The weight matrices cost ~**15B** ops per token, so at this context attention's arithmetic is only **~1/8**.
 
+Where 2.1B comes from: two equal halves, the scores and the weighted sum of values (scaling and softmax add only a few million).
+
+$$\mathrm{scores}: 4.19\mathrm{M\ dots} \times 256 \approx 1.07\mathrm{B} \qquad \mathrm{values}: 32 \times 32 \times 4096 \times 128 \times 2 \approx 1.07\mathrm{B} \qquad \Rightarrow \approx 2.1\mathrm{B}$$
+
+Where ~15B comes from: each weight does one multiply and one add per token, so ~2 ops per parameter. The ~0.5B-parameter input embedding table (128,256 vocab × 4,096) is a lookup, not a matmul, so ~7.5B parameters do work:
+
+$$2 \times (8.03\mathrm{B} - 0.53\mathrm{B}) \approx 15\mathrm{B} \qquad \frac{2.1}{15 + 2.1} \approx 12\% \approx \frac{1}{8}$$
+
 Now count bytes. Llama 3 uses **grouped-query attention (GQA)**: the 32 query heads share just **8** sets of keys and values.
 
 ![GQA](assets/05-dot-products-softmax-attention-math/fig-06-gqa.png)
@@ -121,6 +129,9 @@ Let *L* = layers, *H* = heads, *d* = head dim, *n* = context length.
 #### 1. Attention ops per decode token = dots × cost per dot × 2 (scores + weighted sum)
 
 $$\mathrm{ops} \approx L \cdot H_{q} \cdot n \cdot 2d \cdot 2 = 32 \cdot 32 \cdot 4096 \cdot 256 \cdot 2 \approx 2.1\ \mathrm{B} \quad (\mathrm{vs} \approx 15\ \mathrm{B\ for\ weights})$$
+
+> [!TIP]
+> The final ×2 = scores + weighted sum of values. Weights: 2 ops per non-embedding param, 2 × 7.5B ≈ 15B (the embedding table is a lookup).
 
 #### 2. KV bytes per token: one K and one V per KV head per layer
 
