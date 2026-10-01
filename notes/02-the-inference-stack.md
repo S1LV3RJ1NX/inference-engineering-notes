@@ -104,7 +104,7 @@ Engines like **vLLM, SGLang and TensorRT-LLM** turn a model into a service. They
 
 ### Derive, don't memorize
 
-Every derivation here is the same idea: **time = bytes ÷ bandwidth**, or **capacity = bytes ÷ bytes-per-item**. Per-step time and KV per token: see 01, derivations 1 and 4.
+Every derivation here is the same idea: **time = bytes ÷ bandwidth**, or **capacity = bytes ÷ bytes-per-item**. Per-step time: see 01, derivation 1. KV per token: see 05, derivation 2.
 
 #### 1. KV capacity = memory left after the weights ÷ cache per token ◆
 

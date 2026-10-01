@@ -143,11 +143,7 @@ $$\frac{\$}{1\mathrm{M\ tokens}} = \frac{\$\ \mathrm{per\ GPU\ hour}}{\mathrm{to
 
 #### 4. Why batching isn't free: every sequence brings its own KV cache ◆
 
-Each layer stores one K and one V vector per KV head for every past token:
-
-$$\mathrm{KV/token} = 2 \times L \times H_{\mathrm{kv}} \times d_{\mathrm{head}} \times \mathrm{bytes} = 2 \times 32 \times 8 \times 128 \times 2 = 128\ \mathrm{KB}$$
-
-A step reads the weights once plus every sequence's cache (context length *C*), so steps slow down as the batch grows:
+A step reads the weights once plus every sequence's cache (context length *C*; KV/token ≈ 128 KB, derived in 05), so steps slow down as the batch grows:
 
 $$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\mathrm{BW}}$$
 

@@ -47,11 +47,7 @@ $$\frac{\$}{1\mathrm{M\ tokens}} = \frac{\$\ \mathrm{per\ GPU\ hour}}{\mathrm{to
 
 #### 4. Why batching isn't free: every sequence brings its own KV cache ◆
 
-Each layer stores one K and one V vector per KV head for every past token:
-
-$$\mathrm{KV/token} = 2 \times L \times H_{\mathrm{kv}} \times d_{\mathrm{head}} \times \mathrm{bytes} = 2 \times 32 \times 8 \times 128 \times 2 = 128\ \mathrm{KB}$$
-
-A step reads the weights once plus every sequence's cache (context length *C*), so steps slow down as the batch grows:
+A step reads the weights once plus every sequence's cache (context length *C*; KV/token ≈ 128 KB, derived in 05), so steps slow down as the batch grows:
 
 $$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\mathrm{BW}}$$
 
@@ -104,7 +100,7 @@ $$t_{\mathrm{step}}(B) \approx \frac{2P + B \cdot C \cdot \mathrm{KV/token}}{\ma
 
 ### Derive, don't memorize
 
-Every derivation here is the same idea: **time = bytes ÷ bandwidth**, or **capacity = bytes ÷ bytes-per-item**. Per-step time and KV per token: see 01, derivations 1 and 4.
+Every derivation here is the same idea: **time = bytes ÷ bandwidth**, or **capacity = bytes ÷ bytes-per-item**. Per-step time: see 01, derivation 1. KV per token: see 05, derivation 2.
 
 #### 1. KV capacity = memory left after the weights ÷ cache per token ◆
 
@@ -299,3 +295,70 @@ $$S = \frac{t_{\mathrm{before}}}{t_{\mathrm{after}}} \qquad S_{\mathrm{overall}}
 >
 > - Adding speedups ("2× + 2× = 4×"): compose by time accounting instead.
 > - Quoting a speed floor for a model that doesn't fit.
+
+<div class="lesson-break"></div>
+
+## 05 · Dot Products, Softmax & Attention Math
+
+[Full notes](05-dot-products-softmax-attention-math.md)
+
+
+### Say it in 30 seconds
+
+> Attention scores are dot products of the new token's query with every past key, scaled by √d and softmaxed into weights that mix the values. Per decode token that's little arithmetic but a full read of every stored key and value, about 4 ops per byte, so decode attention is memory-bound. K/V grows 128 KB per token per user in Llama 3 8B, overtaking the weights at long context or big batch. Prefill instead faces an n² score matrix, which FlashAttention avoids with an online softmax.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B attention:** 32 layers, 32 query heads, 8 KV heads (GQA), head dim 128. **FP16 max:** 65,504.
+
+### Derive, don't memorize
+
+Let *L* = layers, *H* = heads, *d* = head dim, *n* = context length.
+
+#### 1. Attention ops per decode token = dots × cost per dot × 2 (scores + weighted sum)
+
+$$\mathrm{ops} \approx L \cdot H_{q} \cdot n \cdot 2d \cdot 2 = 32 \cdot 32 \cdot 4096 \cdot 256 \cdot 2 \approx 2.1\ \mathrm{B} \quad (\mathrm{vs} \approx 15\ \mathrm{B\ for\ weights})$$
+
+#### 2. KV bytes per token: one K and one V per KV head per layer
+
+$$\mathrm{KV/token} = 2 \cdot L \cdot H_{\mathrm{kv}} \cdot d \cdot \mathrm{bytes} = 2 \cdot 32 \cdot 8 \cdot 128 \cdot 2 = 128\ \mathrm{KB} \quad \Rightarrow \quad \frac{2.1\ \mathrm{B\ ops}}{4096 \times 128\ \mathrm{KB}} \approx 4\ \mathrm{ops/byte}$$
+
+> [!TIP]
+> 4 ≪ ~300 ridge (01, derivation 2): memory-bound. K/V matches the 16 GB weights at 16 GB ÷ 128 KB ≈ 122k tokens for one user, or ~4k each for 32 users. GQA's 8 KV heads instead of 32 cut this 4× ◆.
+
+#### 3. Prefill scores = n² per head
+
+$$n^{2} \cdot H \cdot 2\ \mathrm{B} = 8192^{2} \times 32 \times 2 \approx 4.3\ \mathrm{GB\ per\ layer}$$
+
+> [!TIP]
+> Quadratic scratch is why FlashAttention tiles keys and never writes the square to memory.
+
+#### 4. Online softmax: running max *m* and sum *l*, rescaled when *m* rises
+
+$$m' = \max(m, m_{\mathrm{blk}}) \qquad l' = l \cdot e^{m - m'} + \sum_{\mathrm{blk}} e^{x - m'}$$
+
+> [!TIP]
+> Blocks [2, 1] then [3, 0]: l = 1.37 → 1.37·e⁻¹ + e⁰ + e⁻³ ≈ 1.55, identical to the full row.
+
+### Decode attention vs prefill attention
+
+| | Decode (1 new token) | Prefill (n prompt tokens) |
+|---|---|---|
+| Queries | 1 per head | n per head |
+| Problem | Reading all K/V (bytes) | n × n score matrix (scratch) |
+| Grows with | Context × batch | Prompt length squared |
+| Main fixes | GQA, KV quantization ◆, paged KV | FlashAttention (tiling + online softmax) |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why divide by √d? | Random q·k has variance d; unscaled scores make softmax one-hot. |
+| Why subtract the max in softmax? | FP16 overflows (e¹² > 65,504); the weights are unchanged. |
+| What does GQA save? | K/V memory and bandwidth: 8 shared KV heads instead of 32. |
+| Is attention the bottleneck? | Only at long context or big batch; otherwise the weights dominate. |
+
+> [!WARNING]
+>
+> - Counting attention FLOPs instead of K/V bytes for decode.
+> - Calling softmax "cheap": its whole-row dependency dictates kernel design.
