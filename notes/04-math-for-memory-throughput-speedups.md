@@ -96,10 +96,12 @@ $$S = \frac{1}{(1 - p) + p/s} \qquad \lim_{s \rightarrow \infty} S = \frac{1}{1 
 
 | Decimal (SI) | Bytes | Binary (IEC) | Bytes | Binary ÷ decimal |
 |---|---|---|---|---|
-| 1 KB | 10³ = 1,000 | 1 KiB | 2¹⁰ = 1,024 | 1.024 |
-| 1 MB | 10⁶ | 1 MiB | 2²⁰ = 1024² ≈ 1.049 × 10⁶ | 1.049 |
-| 1 GB | 10⁹ | 1 GiB | 2³⁰ = 1024³ ≈ 1.074 × 10⁹ | 1.074 |
-| 1 TB | 10¹² | 1 TiB | 2⁴⁰ = 1024⁴ ≈ 1.100 × 10¹² | 1.100 |
+| 1 KB (kilobyte) | 10³ = 1,000 | 1 KiB (kibibyte) | 2¹⁰ = 1,024 | 1.024 |
+| 1 MB (megabyte) | 10⁶ | 1 MiB (mebibyte) | 2²⁰ = 1024² ≈ 1.049 × 10⁶ | 1.049 |
+| 1 GB (gigabyte) | 10⁹ | 1 GiB (gibibyte) | 2³⁰ = 1024³ ≈ 1.074 × 10⁹ | 1.074 |
+| 1 TB (terabyte) | 10¹² | 1 TiB (tebibyte) | 2⁴⁰ = 1024⁴ ≈ 1.100 × 10¹² | 1.100 |
+
+The "i" means binary: kibi = **ki**lo **bi**nary, mebi = **me**ga **bi**nary, and so on. Say "kibibyte" (KIB-ee-byte), "gibibyte" (GIB-ee-byte).
 
 - **GB → GiB:** divide by 1.074. 16 GB = **14.9 GiB**; an 80 GB H100 = **74.5 GiB**.
 - ◆ Datasheet rates are decimal: **1 TB/s = 1 GB/ms = 1 MB/µs**, so 3.35 TB/s moves 16 GB in 16 ÷ 3.35 ≈ 4.8 ms.
