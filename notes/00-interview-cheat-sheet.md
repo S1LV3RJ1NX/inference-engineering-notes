@@ -560,3 +560,71 @@ $$\frac{60}{0.316\ \mathrm{s}} \approx 190\ \mathrm{tok/s} \qquad \mathrm{counti
 >
 > - Timing `generate()` with a plain stopwatch and no GPU sync.
 > - Leaving `max_new_tokens` unset in production.
+
+<div class="lesson-break"></div>
+
+## 09 · Watch GPU Memory, Utilization & Power
+
+[Full notes](09-watch-gpu-memory-utilization-power.md)
+
+
+### Say it in 30 seconds
+
+> Dashboard memory is weights plus the allocator's cached pool plus the KV cache plus a driver reserve, and engines like vLLM pre-book 92% at launch for KV blocks. GPU utilization is a duty cycle, the share of time any kernel ran, so one user's decode can read 100% while compute idles. Power below the cap is normal for memory-bound decode; caps and thermal events show up in clock reasons. For how well the GPU is used, measure MBU and MFU against a floor.
+
+### Only numbers worth memorizing
+
+- **vLLM** `gpu_memory_utilization` default **0.92**. **Util window:** 1/6 s–1 s. **H100 SXM:** up to 700 W. **P0** full … **P12** idle.
+
+### Derive, don't memorize
+
+#### 1. Dashboard memory is a sum, nested around your tensors
+
+$$\mathrm{used} = W + \mathrm{pool} + \mathrm{KV} + \mathrm{reserve} \qquad \mathrm{allocated} \leq \mathrm{reserved} \leq \mathrm{used}$$
+
+> [!TIP]
+> Engine pre-book: 0.92 × 80 ≈ 73.6 GB, so ≈ 57.6 GB above the 16 GB weights becomes KV blocks ◆ (minus activations). How many tokens that holds: see 02, derivation 1.
+
+#### 2. Utilization = time any kernel ran ÷ sample window
+
+$$\mathrm{util} = \frac{t_{\mathrm{any\ kernel}}}{t_{\mathrm{window}}} \qquad \mathrm{1\ of\ 132\ SMs\ busy\ all\ window} \Rightarrow 100\%$$
+
+#### 3. "Busy enough" = achieved ÷ peak, for bytes and for ops ◆
+
+$$\mathrm{MBU} = \frac{16\ \mathrm{GB} / 6\ \mathrm{ms}}{3.35\ \mathrm{TB/s}} \approx 80\% \qquad \mathrm{MFU} = \frac{15\ \mathrm{GFLOP} / 6\ \mathrm{ms}}{989\ \mathrm{TFLOPS}} \approx 0.25\%$$
+
+> [!TIP]
+> Decode: judge by MBU (bandwidth-bound). Prefill and big batches: MFU matters too (01, derivation 2).
+
+### What each reading shows
+
+| Reading | Shows | Doesn't show | Check instead |
+|---|---|---|---|
+| Memory used | What the driver handed out | Live tensors alone | `memory_allocated()` |
+| GPU-util | Any kernel running | SMs busy, bandwidth used | MBU / MFU |
+| Memory-util | Memory bus active time | Bytes moved | MBU |
+| Power draw | What the board spends | How hard it works | Clocks event reasons |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| ~92% memory before any request | Engine pre-booked KV blocks, not a leak |
+| Memory climbs during long chats | KV cache growth |
+| Growth survives finished requests + `empty_cache()` | A real leak |
+| 100% util with one user | Duty cycle; compute mostly waiting on memory |
+| Throughput dips, traffic unchanged | Power cap, thermal slowdown or high P-state |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why is "used" bigger than my tensors? | Allocator pool, KV cache and driver reserve are included. |
+| Does 100% util mean saturated? | No: it means a kernel was running. |
+| Decode at half the power cap: problem? | No: memory-bound decode leaves compute idle. |
+| Where do power or heat throttles show? | Clocks event reasons (SW Power Cap, thermal slowdown). |
+
+> [!WARNING]
+>
+> - Treating GPU-util as saturation, or power draw as effort.
+> - Calling an engine's launch-time pre-booking a memory leak.
