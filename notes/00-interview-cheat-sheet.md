@@ -688,3 +688,78 @@ $$B \cdot T \cdot V \cdot 4\ \mathrm{B} = 8192 \times 128256 \times 4 \approx 4.
 >
 > - Assuming the model scores only the last position: it scores all of them.
 > - Treating `hidden_states[32]` as the raw block output: the final norm is applied.
+
+<div class="lesson-break"></div>
+
+## 11 · Q, K, V & Causal Attention During Inference
+
+[Full notes](11-qkv-causal-attention-during-inference.md)
+
+
+### Say it in 30 seconds
+
+> Each token's hidden state is projected into a query, key and value. Scores are q·k / √d, softmaxed into weights, and the output is the weighted sum of values. A causal mask sets future scores to −∞, so the grid is a lower triangle and appending a token never changes earlier rows. Prefill computes the whole triangle; each decode step adds one row. Queries are used once, but keys and values are reread by every later token, so we cache them, and reading that cache makes decode memory-bound.
+
+### Only numbers worth memorizing
+
+- **Worked example:** q_on = (1, 2) → weights 4 / 29 / 59 / 8% → output **(0.67, 0.88)**, mostly "sat".
+
+### Derive, don't memorize
+
+#### 1. Masked attention in one line
+
+Scores, mask, softmax, blend. The mask is added, not multiplied, so future cells become exp(−∞) = 0.
+
+$$\mathrm{Attn}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{T}}{\sqrt{d}} + M\right) V \qquad M_{ij} = 0\ (j \leq i), \quad -\infty\ (j > i)$$
+
+> [!TIP]
+> Why −∞ and not 0? A score of 0 still gets weight e⁰ = 1. Only −∞ gives exactly zero.
+
+#### 2. Work per step: the triangle vs one row
+
+$$\mathrm{prefill\ cells} = \frac{n(n+1)}{2} \qquad \mathrm{decode\ step\ } t = t\ \mathrm{cells\ (one\ new\ row)}$$
+
+> [!TIP]
+> Earlier rows can't change, so decode never redoes them: it only needs the new query and every past K and V. Bytes for those are in 05, derivation 2.
+
+#### 3. Why cache K and V, not Q ◆
+
+Without a cache, step t projects all t past tokens again:
+
+$$\sum_{t=1}^{N} t = \frac{N(N+1)}{2} \approx 8.4\mathrm{M}\ (N = 4096) \quad \mathrm{vs} \quad N = 4096\ \mathrm{with\ a\ cache}$$
+
+> [!TIP]
+> ◆ The cache trades compute for memory: projections drop from quadratic to linear, and the price is 128 KB per token of storage that must be read every step.
+
+### Query vs key vs value
+
+| | Query | Key | Value |
+|---|---|---|---|
+| Role | What I'm looking for | What I offer for matching | What I hand over |
+| Library | Your search | Spine labels | The books |
+| Heads (Llama 3 8B) | 32 × 128 | 8 × 128 | 8 × 128 |
+| Lifetime | Used once, at its own step | Reread by every later token | Reread by every later token |
+| Cached? | No | Yes | Yes |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Training loss suspiciously low | Mask missing: the model peeks at future tokens |
+| Earlier outputs shift when you append a token | ◆ Mask bug: attention isn't causal |
+| Decode slows as the conversation grows | Each step rereads all past K/V |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why separate keys and values? | Keys decide who is attended to; values decide what is passed on. |
+| Is the mask needed at inference? | ◆ Yes in prefill: prompt tokens run in parallel and must not see later prompt tokens. |
+| What does a new token add to the grid? | One row: 1 query × all keys so far. |
+| What's the shape of the score grid per head? | n × n queries by keys, lower triangle after masking. |
+
+> [!WARNING]
+>
+> - Thinking the mask is training-only: prefill still needs it ◆.
+> - Caching queries: they're never reused.
+> - Multiplying by a 0/1 mask after softmax: rows no longer sum to 1. Add −∞ before softmax.
