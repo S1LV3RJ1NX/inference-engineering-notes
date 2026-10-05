@@ -628,3 +628,63 @@ $$\mathrm{MBU} = \frac{16\ \mathrm{GB} / 6\ \mathrm{ms}}{3.35\ \mathrm{TB/s}} \a
 >
 > - Treating GPU-util as saturation, or power draw as effort.
 > - Calling an engine's launch-time pre-booking a memory leak.
+
+<div class="lesson-break"></div>
+
+## 10 · Trace the Transformer Forward Pass
+
+[Full notes](10-trace-the-transformer-forward-pass.md)
+
+
+### Say it in 30 seconds
+
+> One forward pass per token: the tokenizer (CPU, microseconds) turns text into IDs, each ID picks an embedding row to form a (batch, positions, 4,096) residual stream, 32 blocks each read the stream and add an adjustment without changing its shape, and the final norm plus output matrix produce logits of shape (batch, positions, 128,256). The model scores every position; generation reads only the last.
+
+### Only numbers worth memorizing
+
+- **"The capital of France is":** 6 IDs → stream (1, 6, 4,096) → logits (1, 6, 128,256); **33** hidden states (embedding + 32 blocks).
+
+### Derive, don't memorize
+
+Let *B* = batch, *T* = positions, *h* = 4,096, *V* = 128,256, *L* = 32.
+
+#### 1. Shapes through the pass
+
+$$(B, T) \rightarrow (B, T, h) \rightarrow \cdots \rightarrow (B, T, h) \rightarrow (B, T, V) \qquad \mathrm{hidden\ states} = L + 1 = 33$$
+
+#### 2. Full-sequence logits are big ◆
+
+$$B \cdot T \cdot V \cdot 4\ \mathrm{B} = 8192 \times 128256 \times 4 \approx 4.2\ \mathrm{GB} \quad \mathrm{vs} \quad 128256 \times 4 \approx 0.5\ \mathrm{MB\ for\ the\ last\ row}$$
+
+> [!TIP]
+> ◆ Serving only needs the last position's logits, so engines project just that row. Kept hidden states cost (L+1)·T·h·2 B ≈ 2.2 GB at 8k: debugging only.
+
+### hidden_states index map
+
+| Index | What it is |
+|---|---|
+| 0 | Embedding output, before any block |
+| 1 … 31 | Stream after block 1 … 31 |
+| 32 | After block 32 **and** the final norm |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| `hidden_states[-1]` ≠ what you expect before the head | It's already final-normed |
+| Wrong next token from your own loop | Read `logits[:, 0]` instead of `logits[:, -1]` |
+| ◆ OOM on long prompts in a plain forward | Full (B, T, V) logits or kept hidden states |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| What's the last non-neural step? | The tokenizer: lookup + merge rules on the CPU. |
+| What does an embedding lookup do? | Each ID selects one row; no multiplication. |
+| Does a block change the stream's shape? | No: it reads, computes an adjustment, adds it back. |
+| Why are there 33 hidden states for 32 blocks? | Index 0 is the embedding output. |
+
+> [!WARNING]
+>
+> - Assuming the model scores only the last position: it scores all of them.
+> - Treating `hidden_states[32]` as the raw block output: the final norm is applied.
