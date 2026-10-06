@@ -763,3 +763,81 @@ $$\sum_{t=1}^{N} t = \frac{N(N+1)}{2} \approx 8.4\mathrm{M}\ (N = 4096) \quad \m
 > - Thinking the mask is training-only: prefill still needs it ◆.
 > - Caching queries: they're never reused.
 > - Multiplying by a 0/1 mask after softmax: rows no longer sum to 1. Add −∞ before softmax.
+
+<div class="lesson-break"></div>
+
+## 12 · MLP, RMSNorm & Residual Connections
+
+[Full notes](12-mlp-rmsnorm-residual-connections.md)
+
+
+### Say it in 30 seconds
+
+> A transformer layer is two pre-norm sublayers on a residual stream: x ← x + attention(norm(x)), then x ← x + MLP(norm(x)). The stream carries 64 additive edits on top of the embedding, so early information survives and each sublayer only learns an edit. RMSNorm divides the copy by its root mean square and applies a learned gain, without mean subtraction. The MLP is per token: SiLU(gate) ⊙ up at 14,336 wide, then down to 4,096. It holds about 70% of the weights, so about 70% of decode's memory traffic. Norms and adds are memory-bound tiny ops, so they get fused.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B MLP:** 4,096 → **14,336** → 4,096; **81%** of a layer, **70%** of all weights (5.64B / 8.03B).
+
+### Derive, don't memorize
+
+#### 1. The stream is a sum of edits
+
+Two adds per layer, nothing overwritten.
+
+$$x_{\mathrm{final}} = x_{\mathrm{embed}} + \sum_{i=1}^{2L} \Delta_{i} \qquad 2L = 64\ \mathrm{for}\ L = 32$$
+
+#### 2. RMSNorm by hand
+
+Square, average, root, divide, then scale by the gain γ.
+
+$$\mathrm{RMSNorm}(x) = \gamma \odot \frac{x}{\sqrt{\frac{1}{h}\sum_{j} x_{j}^{2}}} \qquad (4, -2, 2, -1): \sqrt{\frac{25}{4}} = 2.5 \Rightarrow (1.6, -0.8, 0.8, -0.4)$$
+
+> [!TIP]
+> LayerNorm adds two steps: subtract the mean first, add a learned β after. RMSNorm drops both. ◆ Real kernels add a tiny ε under the root to avoid dividing by zero.
+
+#### 3. The gated MLP
+
+Two expansions, one gated by SiLU, multiplied, then shrunk.
+
+$$\mathrm{MLP}(x) = W_{\mathrm{down}} \left( \mathrm{SiLU}(W_{\mathrm{gate}} x) \odot W_{\mathrm{up}} x \right) \qquad \mathrm{SiLU}(z) = z \cdot \sigma(z) \qquad \mathrm{SiLU}(2) = 2 \times 0.88 \approx 1.76$$
+
+#### 4. The MLP's share of a decode step ◆
+
+$$\frac{32 \times 176\mathrm{M} \times 2\ \mathrm{B}}{3.35\ \mathrm{TB/s}} = \frac{11.3\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 3.4\ \mathrm{ms\ of\ the} \approx 4.5\ \mathrm{ms\ step}$$
+
+> [!TIP]
+> ◆ By Amdahl (04), making only attention weights free caps decode speedup near 1.2×. Shrinking MLP weights (quantization, MoE) is the bigger lever.
+
+### Attention vs MLP vs norm + add
+
+| | Attention | MLP | RMSNorm + add |
+|---|---|---|---|
+| Mixes tokens? | Yes, across positions | No, per token | No, per number |
+| Weights per layer | ≈ 42M | ≈ 176M | 4,096 gains |
+| Decode cost | Weights + KV reads | ≈ 70% of weight reads | Memory passes, launches |
+| Inference fix | GQA, KV cache | ◆ Quantize, MoE | Fuse into one kernel |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Hidden-state values grow layer by layer | Normal: the raw stream accumulates edits; only copies are normalized |
+| Profiler shows many tiny norm/add kernels | Unfused: each re-reads and re-writes the hidden state |
+| ◆ Quantized attention only, decode barely faster | MLP weights dominate the bytes read |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why residual connections? | Layers learn edits, and early information is never overwritten. |
+| What's the difference between RMSNorm and LayerNorm? | No mean subtraction and no shift; works just as well. |
+| Does the MLP see other tokens? | No. Attention moves information between tokens; the MLP is per token. |
+| What does the gate do? | Picks which of 14,336 features pass for this token, and how strongly. |
+| Why fuse add and norm? | Tiny math, but each would read and write the whole hidden state. |
+
+> [!WARNING]
+>
+> - Saying the norm changes the stream: only the sublayer's copy is normalized.
+> - Assuming attention dominates the weights: the MLP is 81% of a layer.
+> - Judging norm/add cost by FLOPs: it's memory passes and launches.
