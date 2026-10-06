@@ -841,3 +841,78 @@ $$\frac{32 \times 176\mathrm{M} \times 2\ \mathrm{B}}{3.35\ \mathrm{TB/s}} = \fr
 > - Saying the norm changes the stream: only the sublayer's copy is normalized.
 > - Assuming attention dominates the weights: the MLP is 81% of a layer.
 > - Judging norm/add cost by FLOPs: it's memory passes and launches.
+
+<div class="lesson-break"></div>
+
+## 13 · Logits, Sampling & the Next Token
+
+[Full notes](13-logits-sampling-next-token.md)
+
+
+### Say it in 30 seconds
+
+> The final-normed vector is dotted with the LM head's 128,256 rows to give logits, one score per token. Softmax exponentiates and normalizes them, and only logit differences matter. Greedy takes the argmax: repeatable, good for facts and code, but it can loop. Sampling divides logits by a temperature, cuts the tail with top-k, top-p or min-p, rescales, and draws; T → 0 is greedy. An engine applies each request's settings to its own logits row on the GPU in one pass, checks stop conditions, streams, appends, and loops. Fix the seed to reproduce samples.
+
+### Only numbers worth memorizing
+
+- **Toy logits 5 / 3.2 / 2.9 / 2.1 / 0.5** → 74 / 12 / 9 / 4 / <1%. Paris at T = 0.5: **96%**; at T = 1.5: **57%**.
+
+### Derive, don't memorize
+
+#### 1. Only gaps over T matter
+
+Divide any two probabilities: the softmax denominator cancels, leaving the logit gap scaled by T.
+
+$$\frac{p_{i}}{p_{j}} = e^{(z_{i} - z_{j})/T} \qquad \frac{p_{\mathrm{Paris}}}{p_{\mathrm{the}}} = e^{1.8} \approx 6\ (T = 1), \quad e^{3.6} \approx 37\ (T = 0.5)$$
+
+> [!TIP]
+> Add c to every logit and the gap is unchanged, so nothing moves. As T → 0 every ratio blows up and the top token takes everything: greedy. Temperature never reorders tokens.
+
+#### 2. Cut, then rescale
+
+Keep a set S of tokens, then divide each survivor by the kept mass.
+
+$$p'_{i} = \frac{p_{i}}{\sum_{j \in S} p_{j}} \qquad \mathrm{top}\ p = 0.9: 74, 86, 95 \Rightarrow 3\ \mathrm{kept}, \quad p'_{\mathrm{Paris}} = \frac{74}{95} \approx 78\%$$
+
+> [!TIP]
+> Min-p 0.1 keeps p ≥ 0.1 × 74% = 7.4%: the same three tokens here. Top-k = 3 keeps them by count.
+
+#### 3. The head is a fixed cost per step ◆
+
+$$V \cdot h \cdot 2\ \mathrm{B} = 128256 \times 4096 \times 2 \approx 1.05\ \mathrm{GB} \qquad \frac{1.05\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 0.31\ \mathrm{ms\ per\ decode\ step}$$
+
+### Decoding rules compared
+
+| Rule | What it does | Adapts to confidence? | Toy result |
+|---|---|---|---|
+| Greedy (T = 0) | argmax | n/a | Paris, always |
+| Temperature | z / T before softmax | Reshapes, keeps order | Paris 96% (0.5), 57% (1.5) |
+| Top-k | Keep the k most likely | No: fixed count | k = 3 → 78 / 13 / 10 |
+| Top-p | Smallest set with Σ ≥ p | Yes: nucleus grows when unsure | p = 0.9 → 3 tokens |
+| Min-p | Keep p ≥ m × p_max | Yes: relative to the top | m = 0.1 → cutoff 7.4% |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Output repeats the same phrase | Greedy on open-ended text: sample, or add penalties |
+| Rare bizarre token mid-answer | No tail cut: add top-p or min-p |
+| Can't reproduce a sampled answer | Seed not fixed |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| What is a logit? | The dot product of the final vector with one LM-head row: an unnormalized score. |
+| Why compute logits only at the last position? | Only it picks the next token; prefill runs the head for one position. |
+| Why is temperature 0 allowed? | APIs treat it as greedy, the T → 0 limit. |
+| Why top-p over top-k? | A fixed k ignores confidence; top-p's nucleus shrinks or grows. |
+| What order does a sampler apply? | Penalties, temperature, cut the tail, rescale, draw. |
+| How do mixed settings share a batch? | Each request's settings apply to its own logits row, in one GPU pass. |
+| When does a request stop? | End-of-text token, maximum length, or a stop string. |
+
+> [!WARNING]
+>
+> - Thinking temperature reorders tokens: it only sharpens or flattens.
+> - Forgetting to rescale after cutting the tail: survivors must sum to 1.
+> - Treating logits as probabilities: they can be negative and don't sum to 1.
