@@ -1053,3 +1053,82 @@ $$\mathrm{TTFT}(n) \approx t_{0} + \frac{n}{\mathrm{prefill\ tok/s}} \qquad \mat
 > - Measuring TTFT under concurrent load: other requests contaminate it.
 > - Estimating at peak FLOP/s: real kernels reach about half.
 > - Assuming prefill is linear forever: attention bends it upward at long prompts.
+
+<div class="lesson-break"></div>
+
+## 16 · Understand & Measure the Decode Phase
+
+[Full notes](16-understand-measure-decode-phase.md)
+
+
+### Say it in 30 seconds
+
+> Decode runs one token per request through every layer as vector-times-matrix, rereading all weights plus that request's KV cache at about one op per byte, so it's memory-bound and time per token is at least bytes over bandwidth: about 5 ms for Llama 3 8B at 4k context on an H100, or 200 tokens/s, and real batch-1 runs are 3–4× slower. Batching shares the weight read, so batch 64 gives 15 ms per step but over 4,000 tokens/s, until KV memory runs out. Measure with a short prompt and forced long output, compute TPOT and the inter-token gap tail, sweep concurrency, and report achieved bandwidth, not GPU utilization.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B, H100, 4k context:** floor ≈ **5 ms/token** (≤ 200 tok/s); batch 16 ≈ **7.4 ms, 2.2k tok/s**; batch 64 ≈ **15 ms, 4.3k tok/s**, 34 GB of KV.
+
+### Derive, don't memorize
+
+#### 1. Decode vs prefill, per token
+
+$$\frac{60\ \mathrm{ms}}{2000\ \mathrm{tokens}} = 0.03\ \mathrm{ms} \quad \mathrm{vs} \quad \approx 5\ \mathrm{ms} \quad \Rightarrow \quad 100\times\ \mathrm{or\ more}$$
+
+#### 2. The floor includes this request's cache
+
+$$t \geq \frac{W + C \cdot \mathrm{KV}}{\mathrm{BW}} = \frac{16.06\ \mathrm{GB} + 4096 \times 128\ \mathrm{KB}}{3.35\ \mathrm{TB/s}} = \frac{16.6\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 5.0\ \mathrm{ms} \qquad C = 32\mathrm{k}: \approx 6.1\ \mathrm{ms}$$
+
+> [!TIP]
+> The weights dominate until the cache rivals them: ◆ at batch 1 that takes ~122k tokens (05). Real kernels add small-kernel and launch costs, landing 3–4× above.
+
+#### 3. Batching: throughput = batch ÷ step time
+
+$$\frac{B}{t(B)}: \quad \frac{16}{7.4\ \mathrm{ms}} \approx 2170\ \mathrm{tok/s} \qquad \frac{64}{15.1\ \mathrm{ms}} \approx 4250\ \mathrm{tok/s} \qquad \mathrm{KV} = 64 \times 0.54\ \mathrm{GB} \approx 34\ \mathrm{GB}$$
+
+> [!TIP]
+> Per user, tokens/s = 1 ÷ t(B): 200 → 136 → 66. Total goes up 21× while each user slows ~3×.
+
+### Batch size vs speed (floor model, 4k context)
+
+| Batch | Step time | Per user | GPU total | KV in memory |
+|---|---|---|---|---|
+| 1 | 5.0 ms | 202 tok/s | 202 tok/s | 0.5 GB |
+| 16 | 7.4 ms | 136 tok/s | 2,174 tok/s | 8.6 GB |
+| 64 | 15.1 ms | 66 tok/s | 4,252 tok/s | 34 GB |
+
+### Measurement recipe
+
+| Do | Why |
+|---|---|
+| Short prompt, long output | Prefill barely matters |
+| Force the output length (ignore EOS) | Every run generates the same count |
+| TPOT = (E2E − TTFT) ÷ (N_out − 1) | Decode pace without the first-token pause |
+| Keep every inter-token gap | The tail shows stalls the mean hides |
+| Sweep concurrency 1 → 64 | Traces the latency vs throughput curve |
+| Report achieved bandwidth | Bytes per step ÷ step time: distance to the floor |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| GPU util ~100% but decode is slow | Util only means a kernel ran; check achieved bandwidth |
+| Batch-1 TPOT 3–4× the floor | Small kernels and launch overheads |
+| Mean TPOT fine, users see stutters | Inter-token gap tail: stalls |
+| Out of memory as concurrency rises | KV cache, not math, caps the batch |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why is decode memory-bound? | One token per step reuses each weight byte once: ~1 op/byte vs ~300 needed. |
+| What two things does every step read? | All the weights and the request's whole KV cache. |
+| How does batching help? | The weight read is shared by every request in the batch. |
+| What caps the batch? | KV memory: each request keeps its cache on the GPU. |
+| How close to the floor am I? | Achieved bandwidth ÷ peak, e.g. 16.6 GB ÷ 12 ms ≈ 1.4 TB/s ≈ 41%. |
+
+> [!WARNING]
+>
+> - Treating the floor as the expected speed: it's the ceiling.
+> - Trusting GPU utilization during decode: the math units can be idle.
+> - Averaging TPOT only: stalls hide in the gap tail.

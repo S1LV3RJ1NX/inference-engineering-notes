@@ -31,6 +31,7 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 | 13 | Logits, Sampling & the Next Token | [md](notes/13-logits-sampling-next-token.md) | [pdf](pdf/13-logits-sampling-next-token.pdf) |
 | 14 | Why Autoregressive Generation Recomputes Work | [md](notes/14-why-autoregressive-generation-recomputes-work.md) | [pdf](pdf/14-why-autoregressive-generation-recomputes-work.pdf) |
 | 15 | Understand & Measure the Prefill Phase | [md](notes/15-understand-measure-prefill-phase.md) | [pdf](pdf/15-understand-measure-prefill-phase.pdf) |
+| 16 | Understand & Measure the Decode Phase | [md](notes/16-understand-measure-decode-phase.md) | [pdf](pdf/16-understand-measure-decode-phase.pdf) |
 
 ## About
 
