@@ -1132,3 +1132,76 @@ $$\frac{B}{t(B)}: \quad \frac{16}{7.4\ \mathrm{ms}} \approx 2170\ \mathrm{tok/s}
 > - Treating the floor as the expected speed: it's the ceiling.
 > - Trusting GPU utilization during decode: the math units can be idle.
 > - Averaging TPOT only: stalls hide in the gap tail.
+
+<div class="lesson-break"></div>
+
+## 17 · Build a KV Cache
+
+[Full notes](17-build-a-kv-cache.md)
+
+
+### Say it in 30 seconds
+
+> Per layer I keep a key and a value tensor shaped [batch, KV heads, max length, head dim], plus a position pointer. That's 128 KiB per token for Llama 3 8B, 1 GiB for an 8k reservation. I preallocate and write in place instead of concatenating, which avoids quadratic copying and keeps shapes static for CUDA graphs. Prefill fills slots 0 to P−1 at once under a causal mask; each decode step writes at the pointer, reads only up to it, and advances. The classic bugs are RoPE at the wrong position, attending to zero-filled slots (e⁰ = 1), not resetting between requests, and copying KV heads instead of broadcasting. I test that greedy outputs match the uncached loop, bytes match the formula, and step time stays flat.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B cache:** per layer K, V = [B, **8**, L_max, **128**]; **8,192 tokens = 1 GiB** per request.
+
+### Derive, don't memorize
+
+#### 1. Bytes the cache should allocate (test 2)
+
+$$\mathrm{bytes} = 2 \cdot L \cdot H_{\mathrm{kv}} \cdot d \cdot L_{\mathrm{max}} \cdot b \cdot B = 128\ \mathrm{KiB} \times 8192 = 1\ \mathrm{GiB\ per\ request}$$
+
+#### 2. Why concatenation is quadratic
+
+Each step copies everything so far, then adds one.
+
+$$\sum_{t=1}^{L} t = \frac{L(L+1)}{2} = \frac{8192 \times 8193}{2} \approx 33.6\mathrm{M\ copies} \quad \mathrm{vs} \quad 8192\ \mathrm{writes}$$
+
+#### 3. Reserved but empty
+
+$$\mathrm{waste} = R \cdot (L_{\mathrm{max}} - \bar{L}) \cdot 128\ \mathrm{KiB} = 8 \times (8192 - 1000) \times 128\ \mathrm{KiB} \approx 7\ \mathrm{GiB}$$
+
+#### 4. What an unmasked empty slot steals ◆
+
+Each zero slot scores 0 and contributes e⁰ = 1 to the softmax denominator.
+
+$$w_{\mathrm{empty}} = \frac{n_{\mathrm{empty}}}{\sum_{i} e^{s_{i}} + n_{\mathrm{empty}}}$$
+
+> [!TIP]
+> ◆ Early in a long reservation almost every slot is empty, so the weight they steal can be huge. Masking to −∞ (or slicing to the pointer) makes it exactly 0.
+
+### The four bugs
+
+| Bug | Symptom | Fix |
+|---|---|---|
+| RoPE at position 0 in decode | First token fine, then gibberish | Rotate by the pointer's position |
+| Reading empty slots | Attention diluted toward zeros | Slice or mask to the filled length |
+| Not resetting | Next user attends to the previous user's text | Reset the pointer per request |
+| Copying KV heads to 32 | ◆ 4× the memory (512 KiB/token) | Store 8, broadcast at attention |
+
+### Three tests
+
+| Test | Pass criterion |
+|---|---|
+| Correctness | 100 greedy tokens identical with/without cache; logits within tolerance (16-bit) |
+| Memory | Allocated bytes = 2 · layers · KV heads · head dim · length · bytes |
+| Speed | Per-step time nearly flat with the cache, climbing without |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why preallocate instead of torch.cat? | cat copies everything every step (quadratic); preallocation is one write and fixed shapes. |
+| Why do fixed shapes matter? | CUDA graphs and compilers need static shapes. |
+| What does the pointer do? | Marks the filled length: where to write next and how far to read. |
+| Why aren't cached logits bit-identical? | 16-bit kernels compute in a different order; they agree within tolerance. |
+| What's the cost of preallocating? | Reserved-but-unused memory caps how many requests fit (paged memory fixes it). |
+
+> [!WARNING]
+>
+> - Feeding the decode token at position 0: RoPE needs its true position.
+> - Assuming zero-filled slots are harmless: e⁰ = 1 gives them weight.
+> - Expecting bit-identical logits in 16-bit: compare tokens exactly, logits with a tolerance.
