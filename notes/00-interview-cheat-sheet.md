@@ -1279,3 +1279,77 @@ $$2 \cdot 80 \cdot 8 \cdot 128 \cdot 2\ \mathrm{B} = 320\ \mathrm{KiB} \qquad \f
 > - Subtracting only the weights: runtime, activations and headroom are real.
 > - Mixing GB and GiB: 16 GB is ~15 GiB.
 > - Stopping at "the weights fit": with no room for cache, it can't serve.
+
+<div class="lesson-break"></div>
+
+## 19 · Calculate KV Memory, Context & Concurrency Limits
+
+[Full notes](19-kv-memory-context-concurrency-limits.md)
+
+
+### Say it in 30 seconds
+
+> Bytes per token is 2 × layers × KV heads × head dim × bytes: 128 KiB for Llama 3 8B, 512 for Llama 2 7B without GQA, 320 for 70B, ~69 for DeepSeek-V3 with MLA. A request holds that times prompt plus output, so 8k tokens is 1 GiB and 128k is 16 GiB. Concurrency is the KV pool divided by per-request cache: an H100's ~53 GB, about 400k tokens, fits 197 requests at 2k, 49 at 8k, 3 at 128k. Context and concurrency trade one for one, so the workload sets the bill: 100 chat users fit but only 31 document users. GQA or MLA, an FP8 cache, more GPUs, and paged allocation by actual length move the curve.
+
+### Only numbers worth memorizing
+
+- **H100, Llama 3 8B, ~400k-token pool:** **197 / 49 / 12 / 3** requests at 2k / 8k / 32k / 128k.
+
+### Derive, don't memorize
+
+#### 1. Concurrency is one division
+
+$$\mathrm{concurrency} = \frac{\mathrm{pool}}{\mathrm{bytes/token} \times \mathrm{length}} = \frac{53\ \mathrm{GB}}{128\ \mathrm{KiB} \times 8192} \approx \frac{404\mathrm{k}}{8192} \approx 49$$
+
+#### 2. Plan a service: users × length × bytes/token vs the pool
+
+$$100 \times 1500 \times 128\ \mathrm{KiB} \approx 20\ \mathrm{GB}\ (\mathrm{fits}) \qquad 100 \times 13000 \times 128\ \mathrm{KiB} \approx 170\ \mathrm{GB} \Rightarrow \frac{404\mathrm{k}}{13000} \approx 31$$
+
+#### 3. The levers multiply
+
+Concurrency ∝ pool ÷ (bytes per token × allocated length), so each lever is a factor.
+
+$$\mathrm{GQA}\ 4\times\ (12 \rightarrow 49) \qquad \mathrm{FP8\ KV}\ 2\times\ (\rightarrow 98) \qquad \mathrm{actual\ length}\ \frac{8192}{1500} \approx 5.5\times\ (\rightarrow 270)$$
+
+> [!TIP]
+> ◆ Factors stack: FP8 cache plus paged allocation ≈ 2 × 270 ≈ 540 requests on the same GPU.
+
+#### 4. Why DeepSeek-V3 is so small ◆
+
+MLA stores one 512-number latent plus a 64-number RoPE key per layer, instead of K and V for every head.
+
+$$(512 + 64) \times 61\ \mathrm{layers} \times 2\ \mathrm{B} \approx 68.6\ \mathrm{KiB/token}$$
+
+### KV cache per token, by architecture
+
+| Model | Why | Per token | 8k request |
+|---|---|---|---|
+| Llama 2 7B | 32 layers, 32 KV heads (MHA) | 512 KiB | 4 GiB |
+| Llama 3 8B | 32 layers, 8 KV heads (GQA) | 128 KiB | 1 GiB |
+| Llama 3 70B | 80 layers, 8 KV heads | 320 KiB | 2.5 GiB |
+| DeepSeek-V3 671B | MLA latent, 61 layers | ~69 KiB | ~0.54 GiB |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Far fewer concurrent users than expected | Long contexts: each fills many users' seats |
+| Same GPU fine for chat, overloaded for RAG | Per-request cache is ~9× bigger (13k vs 1.5k tokens) |
+| Startup "max concurrency" is low | Max length × bytes/token too big for the pool: check by hand |
+| Memory reserved but mostly empty | Allocating max length per request (fix: paged KV) |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| What sets bytes per token? | The architecture: layers, KV heads, head dim, cache precision. |
+| How does context trade with concurrency? | One for one: double the length, halve the requests. |
+| Why is a huge context window expensive? | One user filling it takes many users' seats. |
+| How does GQA help serving? | 8 KV heads instead of 32: 4× more tokens in the same pool. |
+| What does FP8 KV cost? | Doubles the pool, at a small risk to quality. |
+
+> [!WARNING]
+>
+> - Sizing for the average model, not the workload: RAG and chat differ ~9× per request.
+> - Reserving max length per request: real conversations rarely reach it.
+> - Forgetting output tokens: the cache holds prompt plus everything generated.
