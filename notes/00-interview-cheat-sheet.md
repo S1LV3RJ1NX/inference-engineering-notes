@@ -720,16 +720,7 @@ $$\mathrm{Attn}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{T}}{\sqrt{d}} + M\rig
 $$\mathrm{prefill\ cells} = \frac{n(n+1)}{2} \qquad \mathrm{decode\ step\ } t = t\ \mathrm{cells\ (one\ new\ row)}$$
 
 > [!TIP]
-> Earlier rows can't change, so decode never redoes them: it only needs the new query and every past K and V. Bytes for those are in 05, derivation 2.
-
-#### 3. Why cache K and V, not Q ◆
-
-Without a cache, step t projects all t past tokens again:
-
-$$\sum_{t=1}^{N} t = \frac{N(N+1)}{2} \approx 8.4\mathrm{M}\ (N = 4096) \quad \mathrm{vs} \quad N = 4096\ \mathrm{with\ a\ cache}$$
-
-> [!TIP]
-> ◆ The cache trades compute for memory: projections drop from quadratic to linear, and the price is 128 KB per token of storage that must be read every step.
+> Earlier rows can't change, so decode never redoes them: it only needs the new query and every past K and V. Bytes for those are in 05, derivation 2; the full recompute count without a cache is in 14, derivation 1.
 
 ### Query vs key vs value
 
@@ -916,3 +907,74 @@ $$V \cdot h \cdot 2\ \mathrm{B} = 128256 \times 4096 \times 2 \approx 1.05\ \mat
 > - Thinking temperature reorders tokens: it only sharpens or flattens.
 > - Forgetting to rescale after cutting the tail: survivors must sum to 1.
 > - Treating logits as probabilities: they can be negative and don't sum to 1.
+
+<div class="lesson-break"></div>
+
+## 14 · Why Autoregressive Generation Recomputes Work
+
+[Full notes](14-why-autoregressive-generation-recomputes-work.md)
+
+
+### Say it in 30 seconds
+
+> The naive loop reruns the model over the whole sequence each step but uses only the last position's logits. Under the causal mask, old positions produce identical numbers every step, so all of that is recomputation, and it totals NP + N²/2 instead of P + N: 213× for 512 + 256. The new token only needs its own q, k, v and every old token's keys and values per layer, so we cache K and V. The KV cache is exact, costs ~128 KB per token on Llama 3 8B, and splits generation into one big prefill pass and small decode steps.
+
+### Only numbers worth memorizing
+
+- **512 + 256 tokens:** naive **163,712** vs needed **768** (≈ **213×**); cache ≈ **96 MB**.
+
+### Derive, don't memorize
+
+#### 1. Naive work is a staircase
+
+Step k passes over P + k tokens; add the steps.
+
+$$\sum_{k=0}^{N-1} (P + k) = NP + \frac{N(N-1)}{2} \qquad 512 \times 256 + \frac{256 \times 255}{2} = 131072 + 32640 = 163712$$
+
+#### 2. The waste ratio approaches the reply length ◆
+
+$$\frac{NP + N^{2}/2}{P + N} \rightarrow N\ (P \gg N) \qquad 213\ (N = 256), \quad 461\ (N = 512), \quad 967\ (N = 1024)$$
+
+> [!TIP]
+> ◆ Each generated token reruns roughly the whole context, so N tokens cost about N full passes. That is why the waste is quadratic in total length.
+
+#### 3. What to keep, and what it costs
+
+$$\mathrm{cache} = \mathrm{tokens} \times \mathrm{KV/token} = 768 \times 128\ \mathrm{KB} \approx 96\ \mathrm{MB}$$
+
+> [!TIP]
+> Causal mask ⇒ old K, V never change ⇒ store them once. Old queries are never reused, and old MLP outputs only fed the next layer's K, V.
+
+### Naive loop vs KV cache
+
+| | Naive loop | KV cache |
+|---|---|---|
+| Work per step | Whole sequence (P + k tokens) | One new token |
+| Total work | NP + N(N − 1)/2 | P + N |
+| Time per token | Keeps climbing | Roughly flat ◆ (grows slowly with cache reads) |
+| Extra memory | None | ~128 KB per token |
+| Outputs | Reference | Identical (exact) |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Time per token climbs as the reply grows | No KV cache: every step reruns the sequence |
+| GPU memory grows with conversation length | Expected: the cache adds ~128 KB per token |
+| ◆ Cached and uncached outputs disagree beyond float noise | Cache bug (wrong positions or a stale entry) |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why is the naive loop wasteful? | It reruns every position each step and keeps only the last logits. |
+| Why can old work be reused at all? | The causal mask: position i depends only on tokens 1 … i. |
+| Why not cache queries or MLP outputs? | Old queries are never used again; MLP outputs only built the next layer's K, V. |
+| Is the KV cache an approximation? | No: outputs are identical to the naive loop. |
+| How does the waste scale? | Quadratically in length; the ratio is a bit under the reply length. |
+
+> [!WARNING]
+>
+> - Calling the KV cache approximate: it's exact.
+> - Thinking the waste is linear: total naive work is quadratic in length.
+> - Forgetting the price: cache memory grows with every token of every request.

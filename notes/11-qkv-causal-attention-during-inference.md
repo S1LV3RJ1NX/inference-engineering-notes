@@ -98,16 +98,7 @@ $$\mathrm{Attn}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{T}}{\sqrt{d}} + M\rig
 $$\mathrm{prefill\ cells} = \frac{n(n+1)}{2} \qquad \mathrm{decode\ step\ } t = t\ \mathrm{cells\ (one\ new\ row)}$$
 
 > [!TIP]
-> Earlier rows can't change, so decode never redoes them: it only needs the new query and every past K and V. Bytes for those are in 05, derivation 2.
-
-#### 3. Why cache K and V, not Q ◆
-
-Without a cache, step t projects all t past tokens again:
-
-$$\sum_{t=1}^{N} t = \frac{N(N+1)}{2} \approx 8.4\mathrm{M}\ (N = 4096) \quad \mathrm{vs} \quad N = 4096\ \mathrm{with\ a\ cache}$$
-
-> [!TIP]
-> ◆ The cache trades compute for memory: projections drop from quadratic to linear, and the price is 128 KB per token of storage that must be read every step.
+> Earlier rows can't change, so decode never redoes them: it only needs the new query and every past K and V. Bytes for those are in 05, derivation 2; the full recompute count without a cache is in 14, derivation 1.
 
 ### Query vs key vs value
 
