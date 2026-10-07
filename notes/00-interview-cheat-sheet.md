@@ -978,3 +978,78 @@ $$\mathrm{cache} = \mathrm{tokens} \times \mathrm{KV/token} = 768 \times 128\ \m
 > - Calling the KV cache approximate: it's exact.
 > - Thinking the waste is linear: total naive work is quadratic in length.
 > - Forgetting the price: cache memory grows with every token of every request.
+
+<div class="lesson-break"></div>
+
+## 15 · Understand & Measure the Prefill Phase
+
+[Full notes](15-understand-measure-prefill-phase.md)
+
+
+### Say it in 30 seconds
+
+> Prefill runs the whole prompt through the model in one pass, writing every token's K and V into the cache in every layer, and the last position's logits give the first token, so TTFT is mostly prefill. Each weight byte is reused by every prompt token, so a few hundred tokens push arithmetic intensity past the ~300 ridge and prefill is compute-bound. Estimate it as 2 × params × tokens ÷ achievable FLOP/s: about 65 ms for 2k tokens on Llama 3 8B at half of H100 peak, plus an n² attention term for long prompts. Measure with single requests, max_tokens = 1, warm-up and medians over a length sweep, then fit a line.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B, 2k-token prompt on an H100:** ~**65 ms** (half of peak), ~**30k tokens/s**; attention adds ~**3%** at 2k, ~**+54%** at 32k.
+
+### Derive, don't memorize
+
+#### 1. Intensity of one matmul with T tokens
+
+FLOPs: 2Th². Bytes: the h² weights once, plus T input and T output activations (2 bytes each).
+
+$$\mathrm{AI} = \frac{2Th^{2}}{2h^{2} + 4Th} = \frac{Th}{h + 2T} \qquad T = 1: 1, \quad 500: \approx 400, \quad 2000: \approx 1000$$
+
+> [!TIP]
+> For small T the weights dominate the bytes, so AI ≈ T: every extra token is nearly free math on bytes already read. ◆ For huge T it saturates near h/2, because activations dominate.
+
+#### 2. Prefill time from the FLOPs
+
+$$t \approx \frac{2 \cdot N \cdot n}{\mathrm{MFU} \times \mathrm{peak}} = \frac{2 \times 8\mathrm{B} \times 2000}{0.5 \times 989\ \mathrm{TFLOPS}} \approx 65\ \mathrm{ms} \quad \Rightarrow \quad \frac{2000}{65\ \mathrm{ms}} \approx 30\mathrm{k\ tok/s}$$
+
+#### 3. When attention starts to matter
+
+Causal attention is about half of an n × n square per layer (scores plus value mixing), against 2N per token for the weights.
+
+$$\frac{2 L n^{2} h}{2 N n} = \frac{L h n}{N} = \frac{32 \times 4096 \times n}{8\mathrm{B}} \approx 3\%\ (2\mathrm{k}), \quad 54\%\ (32\mathrm{k}), \quad 100\%\ (\approx 61\mathrm{k})$$
+
+#### 4. Read the sweep as a line
+
+$$\mathrm{TTFT}(n) \approx t_{0} + \frac{n}{\mathrm{prefill\ tok/s}} \qquad \mathrm{intercept} = t_{0}, \quad \frac{1}{\mathrm{slope}} = \mathrm{throughput}$$
+
+### What the sweep tells you
+
+| Feature | Meaning |
+|---|---|
+| Intercept | Fixed cost: networking, tokenization, scheduling |
+| Slope | Time per prompt token |
+| 1 / slope | Prefill throughput (tokens/s) |
+| ◆ Upward curve at long lengths | The n² attention term |
+| High GPU util and power | Compute-bound work, as expected |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Measured throughput far below half the napkin | Something's wrong: investigate the setup |
+| TTFT numbers jump around | Concurrent requests, no warm-up, or no median |
+| Other users' streams stall during long prompts | A big prefill occupies the GPU (fix: chunked prefill) |
+| The same long system prompt is slow every time | Shared prefix recomputed (fix: prefix caching) |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| What two jobs does prefill do? | Fills the KV cache and produces the first token. |
+| Why can prefill run all tokens at once? | The whole prompt is known up front; no token waits for another. |
+| Why is prefill compute-bound? | Each weight byte is reused by every prompt token. |
+| Why set max_tokens = 1 when measuring? | The response time is then basically TTFT. |
+| When does attention dominate prefill? | Around 60k tokens on Llama 3 8B; ~3% at 2k. |
+
+> [!WARNING]
+>
+> - Measuring TTFT under concurrent load: other requests contaminate it.
+> - Estimating at peak FLOP/s: real kernels reach about half.
+> - Assuming prefill is linear forever: attention bends it upward at long prompts.
