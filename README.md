@@ -33,6 +33,7 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 | 15 | Understand & Measure the Prefill Phase | [md](notes/15-understand-measure-prefill-phase.md) | [pdf](pdf/15-understand-measure-prefill-phase.pdf) |
 | 16 | Understand & Measure the Decode Phase | [md](notes/16-understand-measure-decode-phase.md) | [pdf](pdf/16-understand-measure-decode-phase.pdf) |
 | 17 | Build a KV Cache | [md](notes/17-build-a-kv-cache.md) | [pdf](pdf/17-build-a-kv-cache.pdf) |
+| 18 | Calculate Model & Runtime Memory | [md](notes/18-calculate-model-runtime-memory.md) | [pdf](pdf/18-calculate-model-runtime-memory.pdf) |
 
 ## About
 

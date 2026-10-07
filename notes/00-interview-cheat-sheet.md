@@ -1205,3 +1205,77 @@ $$w_{\mathrm{empty}} = \frac{n_{\mathrm{empty}}}{\sum_{i} e^{s_{i}} + n_{\mathrm
 > - Feeding the decode token at position 0: RoPE needs its true position.
 > - Assuming zero-filled slots are harmless: e⁰ = 1 gives them weight.
 > - Expecting bit-identical logits in 16-bit: compare tokens exactly, logits with a tolerance.
+
+<div class="lesson-break"></div>
+
+## 18 · Calculate Model & Runtime Memory
+
+[Full notes](18-calculate-model-runtime-memory.md)
+
+
+### Say it in 30 seconds
+
+> GPU memory is weights plus runtime overhead (CUDA context, NCCL, workspaces) plus activations (set by tokens per forward pass) plus the KV cache plus headroom for CUDA graphs and fragmentation. Only the cache serves users, so measure the overhead and give it the rest. vLLM takes 90% of the GPU, subtracts measured weights and a profile run's peak, and allocates the remainder as cache: for Llama 3 8B on an H100, 72 − 16 − 3 ≈ 53 GB, about 400k tokens. Llama 3 70B needs 141 GB: tensor parallel 2 leaves no cache, TP 4 leaves about 135 GB, roughly 410k tokens at 320 KiB each.
+
+### Only numbers worth memorizing
+
+- **Llama 3 8B on one H100:** 72 GB budget − 16 − ~3 ≈ **53 GB of cache ≈ 400k tokens**. **70B:** 141 GB, needs **TP 4** for useful cache.
+
+### Derive, don't memorize
+
+#### 1. The engine's cache budget
+
+$$\mathrm{KV} = u \cdot \mathrm{HBM} - W - A_{\mathrm{peak}} = 0.9 \times 80 - 16 - 3 \approx 53\ \mathrm{GB} \quad \Rightarrow \quad \frac{53\ \mathrm{GB}}{128\ \mathrm{KiB}} \approx 400\mathrm{k\ tokens}$$
+
+#### 2. Activation spikes scale with tokens per step
+
+$$\mathrm{gate + up} = T \cdot 2i \cdot 2\ \mathrm{B} = 8192 \times 2 \times 14336 \times 2 \approx 0.47\ \mathrm{GB} \qquad \mathrm{logits} = S \cdot V \cdot 4\ \mathrm{B} = 256 \times 128256 \times 4 \approx 131\ \mathrm{MB}$$
+
+> [!TIP]
+> These are why the profile run uses the **largest batch it will ever allow**: the peak, not the average, must fit.
+
+#### 3. Tensor parallel: split the weights, then check what's left
+
+$$\mathrm{KV}_{\mathrm{total}} = \mathrm{TP} \cdot \left( 72 - \frac{141}{\mathrm{TP}} - 3 \right): \quad \mathrm{TP} = 2 \Rightarrow < 0, \quad \mathrm{TP} = 4 \Rightarrow 4 \times 33.7 \approx 135\ \mathrm{GB}$$
+
+#### 4. 70B's KV per token, and the token count
+
+$$2 \cdot 80 \cdot 8 \cdot 128 \cdot 2\ \mathrm{B} = 320\ \mathrm{KiB} \qquad \frac{135\ \mathrm{GB}}{320\ \mathrm{KiB}} \approx 410\mathrm{k\ tokens}$$
+
+> [!TIP]
+> ◆ 70B has 80 layers vs 32 but the same 8 KV heads, so 2.5× the KV per token. Four GPUs bought 2.5× the cache memory (135 vs 53 GB), which the bigger tokens eat: about the same ~400k tokens.
+
+### The memory budget, piece by piece
+
+| Piece | Scales with | Llama 3 8B / H100 |
+|---|---|---|
+| Weights | Params × bytes | 16 GB (BF16) |
+| Runtime | Process, GPU count (NCCL) | A few hundred MB + buffers |
+| Activations | Tokens per forward pass | ~3 GB peak (profiled) |
+| KV cache | Whatever is left | ~53 GB ≈ 400k tokens |
+| Headroom | 10% outside the budget | 8 GB: graphs (1–5 GB), fragmentation |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Crash while loading | Weights don't fit: more GPUs or lower precision |
+| Crash while sizing the cache | Budget too small for the max length: lower it or raise the budget |
+| Crash during graph capture | Not enough headroom outside the budget |
+| Tool says 15 for "16 GB" | It prints GiB |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why isn't 80 − 16 = 64 GB free? | Runtime, activations and headroom claim their share first. |
+| Where do you get the exact weight size? | `total_size` in model.safetensors.index.json. |
+| What do activations depend on? | Tokens in one forward pass, not model size alone. |
+| What does vLLM's 90% mean? | Its memory budget; the last 10% is left for CUDA graphs and surprises. |
+| Why does 70B on 2 GPUs fail to serve? | 70.6 GB per GPU leaves ~nothing of 72 GB for overhead and cache. |
+
+> [!WARNING]
+>
+> - Subtracting only the weights: runtime, activations and headroom are real.
+> - Mixing GB and GiB: 16 GB is ~15 GiB.
+> - Stopping at "the weights fit": with no room for cache, it can't serve.
