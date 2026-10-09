@@ -2,18 +2,6 @@
 
 *Interactive revision of [lesson 01](../notes/01-what-is-inference-engineering.md): each question as asked, how I reasoned it out (my words, written in full), where I slipped, and the one-line takeaway.*
 
-| # | Topic | Result |
-|---|---|---|
-| Q1 | Can one user get 300 tokens/s? | <span class="badge ok">solid</span> |
-| Q2 | 64 users at once: step time and speed | <span class="badge mid">partial</span> |
-| Q3 | Cost per million tokens | <span class="badge mid">partial</span> |
-| Q4 | Why prefill of 500 tokens is only ~2× one decode token | <span class="badge mid">partial</span> |
-| Ex | Napkin calculator in code | <span class="badge mid">partial</span> |
-| Q5 | At what batch does decode become compute-bound? | <span class="badge ok">solid</span> |
-
-> [!CAUTION]
-> **Weak spots to re-drill:** powers-of-ten arithmetic, unit sanity checks (ms ↔ tokens/s, $ × hours), per-request KV = tokens × 128 KB, and structuring code from a hand solution. Concepts are strong.
-
 ## Q1 · Can one user get 300 tokens/s? <span class="badge ok">solid</span>
 
 > [!NOTE]
