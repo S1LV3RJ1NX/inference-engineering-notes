@@ -4,3 +4,6 @@
 !/notes/
 !/pdf/
 .DS_Store
+__pycache__/
+!/exercises/
+!/revision/
