@@ -48,7 +48,7 @@
 3. **KV cache:** each user's new token attends to that user's own past tokens, so every user's whole cache is read: 4,096 × 128 KB ≈ 0.5 GB each, × 64 ≈ **32 GB** (about 34 GB in decimal units).
 4. **Total read per step:** 16 + 32 ≈ 48 GB, ÷ 3.35 TB/s ≈ **14 ms** (the lessons get 15 ms with exact sizes).
 5. **Per user:** 14 ms = 0.014 s, so 1 ÷ 0.014 ≈ **71 tokens/s**.
-6. **Total:** each step gives all 64 users a token: 71 × 64 ≈ **4,500 tokens/s**.
+6. **Total:** each step gives all 64 users a token, so total = batch × (1 ÷ step time) = batch ÷ step time: 64 ÷ 0.014 s = 71 × 64 ≈ **4,500 tokens/s**.
 7. **Versus batch 1:** the GPU makes 4,500 ÷ 200 ≈ **22× more**, while each user slows from 200 to 71, only **~2.8× slower**.
 
 > [!WARNING]
@@ -174,5 +174,4 @@ decode_step(8, 2, 64, 4096)   # (15.0 ms, 4,257 tok/s, 66.5, 'memory')
 
 **Why batch = ridge:** in BF16 one step does 2 × P × B FLOPs and reads 2 × P bytes of weights, so FLOPs per byte = **B**. Decode turns compute-bound once B passes the ridge.
 
-> [!IMPORTANT]
-> With real context every user adds KV bytes too, so the flip comes much later or never: batch 296 at 4k context is still memory-bound.
+**Caveat:** with real context every user adds KV bytes too, so the flip comes much later or never: batch 296 at 4k context is still memory-bound.
