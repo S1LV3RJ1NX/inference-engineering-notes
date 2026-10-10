@@ -4,6 +4,8 @@
 
 ## Q1 · Can one user get 300 tokens/s? <span class="badge ok">solid</span>
 
+*Covers: 01, 16*
+
 > [!NOTE]
 > We serve Llama 3 8B in BF16 on one H100, with only one user online. The PM wants to advertise "300 tokens/s streaming". Can we promise it?
 
@@ -25,6 +27,8 @@
 > Decode time per step ≈ bytes read ÷ memory bandwidth.
 
 ## Q2 · 64 users at once: step time and speed <span class="badge mid">partial</span>
+
+*Covers: 01, 16*
 
 > [!NOTE]
 > Same GPU and model, but 64 users are chatting at once, each with about 4,096 tokens of context in their KV cache (128 KB per token). How long is one decode step, what is the total tokens/s, and what does each user get?
@@ -52,6 +56,8 @@ The 16 GB weight read is shared by everyone; only the KV cache is per user. The 
 
 ## Q3 · Cost per million tokens <span class="badge mid">partial</span>
 
+*Covers: 01*
+
 > [!NOTE]
 > The H100 rents for $3/hour. What does 1 million output tokens cost at ~200 tokens/s (one user), and at ~4,500 tokens/s (64 users batched)?
 
@@ -75,6 +81,8 @@ Ratio: 4.17 ÷ 0.18 ≈ **22× cheaper**, the same factor as the throughput gain
 > Write units next to every number (s, h, $/h) so an upside-down formula shows itself. Sanity check: "about an hour, so about $3?"
 
 ## Q4 · Why is prefill of 500 tokens only ~2× one decode token? <span class="badge mid">partial</span>
+
+*Covers: 01, 15*
 
 > [!NOTE]
 > Prefill pushes a 500-token prompt through in ~8 ms; one decode token takes ~4.8 ms. Why so close? Which resource limits each phase?
@@ -102,6 +110,8 @@ Ratio: 4.17 ÷ 0.18 ≈ **22× cheaper**, the same factor as the throughput gain
 > Powers-of-ten division: giga ÷ tera = 10⁻³, so 16 G ÷ 1,000 T = 16 µs. Say "max(math, bytes)" out loud.
 
 ## Exercise · Napkin calculator in code <span class="badge mid">partial</span>
+
+*Covers: 01, 16*
 
 > [!NOTE]
 > Write `decode_step(params_b, bytes_per_param, batch, ctx_tokens, ...)` returning step time (ms), total tokens/s, per-user tokens/s, and whether it's memory- or compute-bound.
@@ -154,6 +164,8 @@ decode_step(8, 2, 64, 4096)   # (15.0 ms, 4,257 tok/s, 66.5, 'memory')
 > When stuck on code, write the hand-solution steps as comments first, then fill one line under each.
 
 ## Q5 · At what batch does decode become compute-bound? <span class="badge ok">solid</span>
+
+*Covers: 01*
 
 > [!NOTE]
 > With zero context, raise the batch until `decode_step` says 'compute'. Where does it flip, and which number does that match?
