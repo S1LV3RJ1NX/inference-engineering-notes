@@ -94,3 +94,39 @@
 
 > [!TIP]
 > For every "why do we do X?" give both halves: what breaks without it, and what it costs (here: nothing).
+
+## Exercise · Online softmax and one-pass attention <span class="badge mid">partial</span>
+
+*Covers: 05*
+
+> [!NOTE]
+> FlashAttention sees scores in blocks. Compute exact softmax weights block by block (Part A), then the attention output Σ softmax_i × v_i in one pass without storing the weights (Part B).
+
+**The idea:** keep a running max `m` and a running sum `l` of e^(score − m). When a block raises the max, rescale everything summed so far by e^(m_old − m_new), because e^(x − m_old) × e^(m_old − m_new) = e^(x − m_new). For attention, keep `acc` = Σ e^(score − m) × value, rescaled the same way; the output is `acc / l`.
+
+**Worked example:** blocks [2, 1] then [3, 0]. After block 1: m = 2, l = e⁰ + e⁻¹ ≈ 1.368. Block 2: m = 3, l = 1.368 × e⁻¹ + e⁰ + e⁻³ ≈ 0.503 + 1.050 = 1.553, the same as the full row.
+
+```python
+def online_attention(scores, values, block_size):
+    m, l, acc = float("-inf"), 0.0, 0.0      # running max, denominator, numerator × values
+    for start in range(0, len(scores), block_size):
+        block_s = scores[start:start + block_size]
+        block_v = values[start:start + block_size]
+        m_new = max(m, max(block_s))         # never decreases
+        scale = math.exp(m - m_new)          # re-express old sums against the new max
+        l = l * scale + sum(math.exp(s - m_new) for s in block_s)
+        acc = acc * scale + sum(math.exp(s - m_new) * v for s, v in zip(block_s, block_v))
+        m = m_new
+    return acc / l
+
+online_attention([2, 1, 3, 0], [10, 20, 30, 40], 2)   # 24.71, same as the naive version
+```
+
+> [!WARNING]
+> Part A: wrote `m_new = max(block)`, forgetting the old max; the running max must never decrease (the test passed only because the last block held the biggest score). Part B: needed the parallel spelled out, then forgot to rescale `acc` (`acc + …` instead of `acc * scale + …`), giving 31.78 instead of 24.71.
+
+> [!IMPORTANT]
+> Online softmax: running max + running sum, rescale old sums by e^(m_old − m_new) whenever the max rises. Anything summed against the max (denominator and numerator) gets the same rescale.
+
+> [!TIP]
+> Every running quantity measured "relative to m" must be rescaled together when m changes.
