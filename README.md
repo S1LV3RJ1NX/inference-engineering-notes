@@ -9,6 +9,8 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 - **Original figures** (charts, timelines, roofline plots) drawn from the lesson's numbers to make the ideas easier to remember.
 - **An interview cheat sheet** on its own pages: numbers to memorize, formulas, comparisons, symptom-to-fix tables and rapid-fire Q&A.
 
+For self-testing there's also a [Revision](#revision) section: interview-style questions and coding exercises per lesson group.
+
 **Interview tomorrow?** Read the [master cheat sheet](pdf/00-interview-cheat-sheet.pdf) ([md](notes/00-interview-cheat-sheet.md)). It collects every lesson's cheat sheet in one file.
 
 ## Lessons
@@ -35,6 +37,20 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 | 17 | Build a KV Cache | [md](notes/17-build-a-kv-cache.md) | [pdf](pdf/17-build-a-kv-cache.pdf) |
 | 18 | Calculate Model & Runtime Memory | [md](notes/18-calculate-model-runtime-memory.md) | [pdf](pdf/18-calculate-model-runtime-memory.pdf) |
 | 19 | Calculate KV Memory, Context & Concurrency Limits | [md](notes/19-kv-memory-context-concurrency-limits.md) | [pdf](pdf/19-kv-memory-context-concurrency-limits.pdf) |
+
+## Revision
+
+After writing the notes I drilled them with interview-style questions and small coding exercises, one lesson group at a time. Each group has a **revision PDF** under [`revision/`](revision/) (the questions, my worked reasoning, where I slipped, and a one-line takeaway per question) built from a Markdown log in [`exercises/`](exercises/), plus any Python exercises. Cover the question, answer it yourself, then check.
+
+| Group | Lessons | Revision | Log | Coding exercise |
+|---|---|---|---|---|
+| 01-02 | 01, 02 | [pdf](revision/01-02-revision.pdf) | [md](exercises/01-02-revision-log.md) | [router](exercises/02_prefill_tokens.py) |
+| 03-04 | 03, 04 | [pdf](revision/03-04-revision.pdf) | [md](exercises/03-04-revision-log.md) | [Amdahl](exercises/03_04_amdahl.py) |
+| 05-07 | 05, 07 | [pdf](revision/05-07-revision.pdf) | [md](exercises/05-07-revision-log.md) | [online softmax](exercises/05_07_online_softmax.py) |
+| 06-08-09 | 06, 08, 09 | [pdf](revision/06-08-09-revision.pdf) | [md](exercises/06-08-09-revision-log.md) | [tail simulation](exercises/06_08_09_tail_sim.py) |
+| 10-13 | 10, 11, 12, 13 | [pdf](revision/10-13-revision.pdf) | [md](exercises/10-13-revision-log.md) | [sampler](exercises/10_13_sampler.py) |
+| 14-17 | 14, 15, 16, 17 | [pdf](revision/14-17-revision.pdf) | [md](exercises/14-17-revision-log.md) | [toy KV cache](exercises/14_17_kv_cache.py) |
+| 18-19 | 18, 19 | [pdf](revision/18-19-revision.pdf) | [md](exercises/18-19-revision-log.md) | [paged KV allocator](exercises/18_19_paged_kv.py) |
 
 ## About
 
