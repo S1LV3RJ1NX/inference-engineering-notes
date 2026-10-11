@@ -32,12 +32,15 @@
 
 | | Chat | Document Q&A |
 |---|---|---|
-| Tokens per conversation | 1,500 | 13,000 |
-| Cache per conversation | 1,500 × 128 KiB ≈ 190 MB | 13,000 × 128 KiB ≈ 1.6 GiB |
-| Fit in ~400k tokens | **~270** | **~31** |
-| 100 users need | ~20 GB → **1 GPU** | ~170 GB → **4 GPUs** (4 × 31 ≈ 124) |
+| Tokens per conversation | 1,000 + 500 = **1,500** | 12,000 + 1,000 = **13,000** |
+| Cache per conversation = tokens × 128 KiB | 1,500 × 128 KiB = 192,000 KiB ≈ **0.19 GB** | 13,000 × 128 KiB = 1,664,000 KiB ≈ **1.6 GiB** |
+| Fit at once = 400k tokens ÷ tokens per conv | 400,000 ÷ 1,500 ≈ **267** | 400,000 ÷ 13,000 ≈ **31** |
+| 100 users need = 100 × cache per conv | 100 × 0.19 ≈ **19 GB** | 100 × 1.6 ≈ **160 GB** |
+| GPUs = 100 users ÷ fit per GPU | 19 GB < one 53 GB pool → **1 GPU** | ⌈100 ÷ 31⌉ = **4 GPUs** |
 
-The workload, not the model, sets the hardware bill. Levers: FP8 KV cache (2× tokens → ~2 GPUs), paged allocation.
+Two ways to get the same GPU count: by **memory** (160 GB ÷ 53 GB per GPU ≈ 4) or by **users** (100 ÷ 31 per GPU ≈ 4). Chat's 19 GB fits inside one GPU's 53 GB pool, so one GPU.
+
+The workload, not the model, sets the hardware bill. Levers: FP8 KV cache (2× tokens → ~2 GPUs for docs), paged allocation.
 
 > [!WARNING]
 > Described the right method (tokens × 128 KiB, pool ÷ that) but gave no numbers or GPU count.
