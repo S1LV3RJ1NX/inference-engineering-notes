@@ -73,37 +73,88 @@ The workload, not the model, sets the hardware bill. Levers: FP8 KV cache (2× t
 *Covers: 19, 17*
 
 > [!NOTE]
-> Pool of 64 blocks × 16 tokens; 20 requests (prompt 100, outputs 50–400), one token per step each. Compare reserving 512 tokens up front with paged allocation (a block when needed, preempt the newest request when the pool is dry).
+> A fixed KV pool holds 64 **blocks** of 16 tokens each. 20 requests arrive (prompt 100 tokens, reply 50–400), and every running request generates one token per step. Simulate two policies and count how many run at once, how often one gets evicted, and how long all 20 take.
+> - **reserve:** on admission a request grabs blocks for the full max length (512 tokens = 32 blocks) and never asks again.
+> - **paged:** a request grabs only the blocks it needs now, and one more each time it crosses into a new block. If the pool is empty when it needs one, **preempt** the newest running request.
 
-**How it's built:** track `waiting` (FIFO), `running` (id → [tokens, blocks]) and `free` blocks. Each step: (1) admit while the first waiting request's starting blocks fit; (2) every running request adds a token and, if paged and it spills past its blocks, takes a block or preempts; (3) finished requests return their blocks. Count everything in blocks: need(tokens) = ⌈tokens ÷ 16⌉.
+**The picture.** The pool is a strip of 64 blocks. Reserve gives each request 32 blocks whether it uses them or not, so only 2 fit and most blocks sit idle. Paged hands out blocks on demand, so 9 short requests pack in, but when the pool is full and a running request needs one more, the engine must evict someone.
+
+![Reserve vs paged KV allocation](assets/18-19-paged-kv.png)
+
+**The whole program** (the only trick is that everything is counted in blocks, with `need(tokens) = ⌈tokens ÷ 16⌉`):
 
 ```python
-want = need(max_len) if policy == "reserve" else need(p)      # admit: BLOCKS, not tokens
-...
-if policy == "paged" and need(toks) > held:                  # token 113 needs block 8
-    if free == 0:
-        victim = max(running)                                 # most recently admitted
-        free += running.pop(victim)[1]                        # remove it AND free its blocks
-        waiting.insert(0, victim)                             # restart later from its prompt
-        preempt += 1
-        if victim == rid:
-            continue
-    free -= 1
-    held += 1
-...
-if toks >= p + out:                                           # finished: return blocks
-    free += held
+import math
+
+def simulate(requests, pool_blocks, block=16, policy="paged", max_len=512):
+    need = lambda toks: math.ceil(toks / block)      # blocks to hold `toks` tokens: 100 -> 7
+    waiting = list(range(len(requests)))             # request ids, first-come-first-served
+    running = {}                                     # id -> [tokens_so_far, blocks_held]
+    free = pool_blocks                               # blocks nobody owns right now
+    peak = preempt = steps = done = 0
+
+    while done < len(requests):
+        steps += 1
+
+        # 1 · ADMIT from the front of the queue while the next one fits.
+        while waiting:
+            rid = waiting[0]
+            p, _ = requests[rid]
+            want = need(max_len) if policy == "reserve" else need(p)   # reserve grabs max length
+            if want > free:
+                break                                # doesn't fit: stop (no skipping ahead)
+            waiting.pop(0)
+            free -= want
+            running[rid] = [p, want]                 # starts holding its prompt
+
+        peak = max(peak, len(running))
+
+        # 2 · GROW: every running request makes one token.
+        for rid in list(running):                    # list(): we may delete while looping
+            if rid not in running:                   # it was evicted earlier this step
+                continue
+            toks, held = running[rid]
+            p, out = requests[rid]
+            toks += 1                                # the new token
+
+            # Paged only: did this token spill past the blocks we hold?
+            if policy == "paged" and need(toks) > held:
+                if free == 0:                        # pool dry -> preempt the newest request
+                    victim = max(running)            # largest id = most recently admitted
+                    free += running.pop(victim)[1]   # remove it AND return its blocks
+                    waiting.insert(0, victim)        # it restarts from its prompt later
+                    preempt += 1
+                    if victim == rid:                # we evicted ourselves: stop here
+                        continue
+                free -= 1                            # take one block for the new token
+                held += 1
+
+            running[rid] = [toks, held]
+
+            # 3 · FINISH: generated all `out` tokens beyond the prompt -> give blocks back.
+            if toks >= p + out:
+                free += held
+                del running[rid]
+                done += 1
+
+    return dict(peak=peak, preemptions=preempt, steps=steps)
+
+reqs = [(100, 50 + (i * 37) % 350) for i in range(20)]
+simulate(reqs, 64, policy="reserve")   # {'peak': 2, 'preemptions': 0,  'steps': 2187}
+simulate(reqs, 64, policy="paged")     # {'peak': 9, 'preemptions': 50, 'steps': 1265}
 ```
+
+**Reading the result:**
 
 | Policy | Peak running | Preemptions | Steps to finish all |
 |---|---|---|---|
 | Reserve 512 up front | 2 | 0 | 2,187 |
 | Paged | 9 | 50 | 1,265 |
 
-Paged runs 4.5× more requests at once and finishes 1.7× sooner; 50 preemptions are the price.
+Paged keeps **4.5× more requests** running at once and finishes **1.7× sooner**, because it isn't wasting blocks on replies that end early. The price is **50 preemptions**: 50 times a request was evicted and had to restart, which a real user would feel as a stall.
 
 > [!WARNING]
-> Compared tokens with blocks in `want` (512 vs 64 free blocks → nothing admitted → infinite loop). Used `toks % 16 == 0` (off by one; compare `need(toks) > held`). `max(running, key=lambda i: i[0])` crashes on integer keys. Read the victim's blocks without removing it from `running`.
+> Compared tokens with blocks in `want` (512 vs 64 free blocks → nothing ever admitted → infinite loop; that's why an earlier run hung). Used `toks % 16 == 0` to detect a new block (off by one; compare `need(toks) > held`). Wrote `max(running, key=lambda i: i[0])`, which crashes because the keys are plain ints. Read the victim's blocks without removing it from `running`.
 
 > [!IMPORTANT]
-> Keep one unit throughout (blocks). Preemption must remove the victim and return its blocks in one step.
+> Keep one unit throughout (blocks, via `need()`). Admit while it fits, grab a block when a token spills over, preempt the newest when the pool is dry, free blocks on finish. Paged trades a little preemption for a lot more concurrency.
