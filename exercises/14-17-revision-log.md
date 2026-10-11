@@ -42,14 +42,18 @@ Total processed = 2 + 3 + 4 = 9, but only 5 tokens exist. The grid shows where t
 *Covers: 15*
 
 > [!NOTE]
-> TTFT (one request, max_tokens = 1, medians): 256 tokens → 23 ms; 8,000 tokens → 280 ms. Assuming TTFT = fixed cost + tokens ÷ throughput, what are the prefill throughput and the fixed cost? What is the fixed cost made of?
+> TTFT (time to first token) is measured one request at a time, max_tokens = 1, taking medians. 256-token prompt → 23 ms; 8,000-token prompt → 280 ms. Model TTFT as a straight line, **TTFT = fixed cost + prompt ÷ throughput**. What are the prefill throughput and the fixed cost, and what is the fixed cost made of?
+
+**Why it's a line.** Every prompt pays the same one-off overhead (the **intercept**), then an amount that grows with the number of tokens (the **slope**). Two measurements give two points, and a line through them has a slope and an intercept.
+
+![TTFT vs prompt length](assets/14-17-ttft-line.png)
 
 **How to solve it**
 
-1. **Slope** = extra time ÷ extra tokens = (280 − 23) ms ÷ (8,000 − 256) = 257 ms ÷ 7,744 ≈ **0.033 ms/token**.
-2. **Throughput** = 1 ÷ 0.033 ms ≈ **30,000 tokens/s**, matching the napkin "half of H100 peak" (lesson 15).
-3. **Fixed cost** = 23 − 256 × 0.033 ≈ 23 − 8.5 ≈ **14.5 ms**.
-4. **Made of:** per-request overhead (**networking, tokenization, scheduling**), not prefill (that's the slope) and not decode (max_tokens = 1).
+1. **Slope** = Δtime ÷ Δtokens = (280 − 23) ms ÷ (8,000 − 256) = 257 ms ÷ 7,744 ≈ **0.033 ms/token** (33 µs). Taking the *difference* of the two points cancels the fixed cost, leaving only the per-token part.
+2. **Throughput** = 1 ÷ slope = 1 ÷ 0.033 ms ≈ **30,000 tokens/s**, matching the napkin "half of H100 peak" (lesson 15).
+3. **Fixed cost (intercept)** = take either point and subtract its token part: 23 − 256 × 0.033 ≈ 23 − 8.5 ≈ **14.5 ms**.
+4. **Made of:** per-request overhead (**networking, tokenization, scheduling**), not prefill (that's the slope) and not decode (max_tokens = 1, so there is none).
 
 > [!WARNING]
 > Got ~11k tokens/s by dividing one point (256 ÷ 23 ms), which folds the fixed cost into throughput. Wasn't sure what the fixed cost contains.
