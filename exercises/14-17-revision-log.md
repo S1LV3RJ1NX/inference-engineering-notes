@@ -7,17 +7,26 @@
 *Covers: 14*
 
 > [!NOTE]
-> A naive loop reruns the model over the whole sequence each step. With a 512-token prompt and a 256-token reply: total tokens processed, tokens actually needed, waste ratio, and why the recomputation is unnecessary?
+> To generate a reply, the model predicts one token at a time. The naive way re-feeds the **entire sequence so far** on every step. With a 512-token prompt and a 256-token reply: how many tokens does it push through the model in total, how many are actually needed, what's the waste ratio, and why is the rest unnecessary?
 
-**How to solve it**
+**First, a tiny example** (prompt P = 2 tokens, reply N = 3 tokens). Each step re-feeds everything so far and keeps only the last position's prediction:
 
-1. Step k processes 512 + k tokens, for k = 0 … 255.
-2. Prompt re-run every step: N × P = 256 × 512 = **131,072**.
-3. Growing reply: 0 + 1 + … + 255 = N(N − 1)/2 = **32,640**.
-4. Total ≈ **163,712**.
-5. Needed: every token through the model **once** (to produce its K and V): P + N = **768**.
-6. Waste ratio: 163,712 ÷ 768 ≈ **213×** (roughly the reply length).
-7. **Why unnecessary:** under the causal mask each position depends only on tokens up to itself, so its numbers are identical every step. Compute once, keep K and V: the KV cache.
+- Step 1: feed 2 tokens → predict token #3. **Processed 2.**
+- Step 2: feed 3 tokens (prompt + 1 generated) → predict #4. **Processed 3.**
+- Step 3: feed 4 tokens → predict #5. **Processed 4.**
+
+Total processed = 2 + 3 + 4 = 9, but only 5 tokens exist. The grid shows where the waste is: each step recomputes the whole row, but only the green diagonal cell is new; every "=" cell is identical to the row above.
+
+![Naive recompute staircase](assets/14-17-naive-staircase.png)
+
+**Now the real numbers** (P = 512, N = 256). Step k feeds 512 + k tokens, for k = 0 … 255:
+
+1. The **prompt** (512 tokens) is re-fed on all 256 steps: 256 × 512 = **131,072**.
+2. The **growing reply** adds 0, then 1, … up to 255: that sum is 255 × 256 ÷ 2 = **32,640**.
+3. Total ≈ **163,712** tokens pushed through the model.
+4. **Needed:** each of the 768 real tokens (512 + 256) goes through the model **once** to compute its key and value: P + N = **768**.
+5. Waste ratio: 163,712 ÷ 768 ≈ **213×** (roughly the reply length).
+6. **Why unnecessary:** under the causal mask, token #5's key and value depend only on tokens 1–5, so adding token #6 later can't change them. The naive loop recomputes the same keys/values every step. Fix: compute each token's K and V once and store them (the KV cache); each step then does the work for just the one new token.
 
 > [!WARNING]
 > Said "roughly n²", forgetting that the 512-token prompt is re-run every step (N × P dominates here). Said "needed = 1" (that's what each step uses, the last logits); what must be computed is every token once, P + N.
