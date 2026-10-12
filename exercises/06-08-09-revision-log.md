@@ -43,16 +43,20 @@ So a "1% slow" API makes **18% of agent tasks** hit a slow call, because 20 call
 *Covers: 06*
 
 > [!NOTE]
-> 5 runs before average 20.0 ms TPOT; 5 runs after average 19.3 ms; run-to-run σ ≈ 0.8 ms. "3.5% faster, ship it." Is it real?
+> You tweak a setting and benchmark TPOT (time per output token). Before: 5 runs averaging 20.0 ms. After: 5 runs averaging 19.3 ms. Each run wobbles by about σ ≈ 0.8 ms. A teammate says "3.5% faster, ship it." Is it real?
 
-**How to think about it: wobble, not formulas**
+**The core idea: measurements wobble.** Run the exact same benchmark twice and the number jitters. σ = 0.8 ms means a single run typically lands ~0.8 ms from the truth. The gap we saw is only 20.0 − 19.3 = 0.7 ms, smaller than one run's wobble, so maybe it's a real speedup, maybe it's just noise. We need to tell those apart.
 
-1. **One run wobbles** by σ ≈ 0.8 ms around the true value.
-2. **Averaging calms it, slowly:** an average of n runs wobbles σ ÷ √n = 0.8 ÷ √5 ≈ 0.8 ÷ 2.2 ≈ **0.36 ms** (the standard error).
-3. **A difference of two averages wobbles more:** both are uncertain, and two independent wobbles combine as √2 ≈ 1.4×: 0.36 × 1.4 ≈ **0.5 ms**.
+**Why averaging helps, and why only by √n.** Each run misses the truth by a random amount, sometimes high, sometimes low, so averaging makes the misses partly cancel. Not perfectly (that would make the average exact) and not never (that would make averaging useless): they cancel **randomly**. Adding n random ±wobbles lands you about √n × σ away (the random-walk fact), and the average is that sum ÷ n, so the average's wobble is **σ ÷ √n**. For 5 runs: 0.8 ÷ √5 ≈ 0.8 ÷ 2.2 ≈ **0.36 ms** (the "standard error"). Halving it costs 4× the runs, not 2×.
+
+**Now build the noise band step by step:**
+
+1. **One run** wobbles by σ ≈ **0.8 ms**.
+2. **An average of 5** wobbles by σ ÷ √5 ≈ **0.36 ms**.
+3. **The difference** of two averages wobbles more, because both ends are jittery; two independent wobbles combine by √2 ≈ 1.4×: 0.36 × 1.4 ≈ **0.5 ms**.
 4. **"Pretty sure" ≈ 2 wobbles** (~95% confidence): noise band ≈ 2 × 0.5 ≈ **±1.0 ms**.
-5. **Compare:** observed difference = 20.0 − 19.3 = **0.7 ms**, inside ±1.0 ms. **Could be luck: not proven, don't ship yet.**
-6. **To settle it:** 4× the runs (20 each) halves the band to ±0.5 ms; if the 0.7 ms gap holds, it's real.
+5. **Compare:** the observed gap is **0.7 ms**, inside ±1.0 ms. **Could be luck: not proven, don't ship yet.**
+6. **To settle it:** 4× the runs (20 each) halves the band to ±0.5 ms; if the 0.7 ms gap survives, it's real.
 
 > [!WARNING]
 > Didn't know how to start. The missing mental model: one run wobbles σ, an average wobbles σ/√n, a difference wobbles ×√2, and only a gap beyond ~2× that is real.
