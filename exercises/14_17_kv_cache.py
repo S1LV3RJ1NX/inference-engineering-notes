@@ -24,22 +24,33 @@ What this file shows
 """
 import numpy as np
 
+# The mental model. Each token is a list of 8 numbers (a vector). @ means "multiply and add things together". 
+# Two shapes to keep in mind:
+# vector @ matrix → vector. x[t] @ Wq: one token (8 numbers) times an 8×8 matrix gives 8 new numbers.
+# (n rows) @ matrix → (n rows). Doing it for n tokens at once gives n new rows.
 rng = np.random.default_rng(0)
-d, max_len = 8, 32                                      # vector size, cache capacity (slots)
-Wq, Wk, Wv = (rng.normal(size=(d, d)) for _ in range(3))
+d, max_len = 8, 32 # each token = 8 numbers; cache can hold 32 tokens                                      
+Wq, Wk, Wv = (rng.normal(size=(d, d)) for _ in range(3)) # three 8×8 matrices of random numbers
+
+# Wq, Wk, Wv are the "learned" projection matrices from the lessons. 
+# Here they're random, because we only care that cached and naive give the same answer, 
+# not a meaningful one. A token's query is x[t] @ Wq, its key is x[t] @ Wk, its value is x[t] @ Wv.
 
 
 def attend(q, K, V):
     """One query against keys K and values V (each row = one position).
 
+    `@` rule: (rows x INNER) @ (INNER x cols) = (rows x cols); the matching INNER cancels.
+      K @ q : (n x 8) @ (8,)  -> (n,)   n scores, one per key   (q acts as a column on the right)
+      w @ V : (n,)   @ (n x 8) -> (8,)  one blended value       (w acts as a row on the left)
     scores = how well q matches each key (scaled by sqrt(d), lesson 05),
     softmax turns scores into weights that sum to 1,
     output = weighted average of the value rows.
     """
-    scores = K @ q / np.sqrt(d)
-    w = np.exp(scores - scores.max())                   # subtract max: no overflow, same weights
-    w /= w.sum()
-    return w @ V
+    scores = K @ q / np.sqrt(d)   # K is (n × 8), q is (8,). K @ q gives n dot products: how well q matches each key
+    w = np.exp(scores - scores.max())   # exponentiate; subtracting the max avoids overflow (lesson 05)
+    w /= w.sum()                        # divide by the total so the weights add up to 1 (softmax)
+    return w @ V                        # weighted average of the value rows: w is (n,), V is (n × 8) → (8,)
 
 
 def naive_outputs(x, prompt_len):

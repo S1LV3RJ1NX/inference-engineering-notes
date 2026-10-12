@@ -111,6 +111,17 @@ Total processed = 2 + 3 + 4 = 9, but only 5 tokens exist. The grid shows where t
 > [!NOTE]
 > One attention head on random 8-number vectors. Write the cached loop (preallocated K/V buffers, a position pointer, read only filled slots) and prove it matches the naive loop exactly; then read the empty slots to see bug 2.
 
+**numpy, demystified.** Only two ideas appear. (1) A **token is 8 numbers** (a vector); stacking n of them makes an `n × 8` table. (2) `@` is **multiply-and-add**, with one rule: `(rows × INNER) @ (INNER × cols) = (rows × cols)`; the matching INNER cancels and is the thing you sum over.
+
+- `x[t] @ Wq`: one token (8) times an 8×8 matrix → its query (8 numbers). Same for the key (`Wk`) and value (`Wv`).
+- `K @ q`: keys `n × 8` times query `8` (a column on the right) → **n scores**, one per key. The 8s cancel, so each score is one key dotted with the query.
+- `w @ V`: weights `n` (a row on the left) times values `n × 8` → **one blended value** (8 numbers). The ns cancel, so it's the weighted average of the value rows. (`V @ w` would not line up, and would not mean "blend the rows".)
+- A 1-D array has no orientation: on the **left** of `@` it acts as a row, on the **right** as a column.
+
+Slicing is just picking rows: `x[:prompt_len]` is "the first `prompt_len` tokens", `K_cache[pos] = …` writes one row, `K_cache[:n]` reads the first n. `np.zeros((32, 8))` is a 32×8 table of zeros; `np.allclose(a, b)` means "equal within rounding".
+
+**`attend(q, K, V)`** is the whole attention formula in three lines: `scores = K @ q / √d` (match query to every key), `w = softmax(scores)` (turn scores into weights that sum to 1), `return w @ V` (blend the values by those weights).
+
 ```python
 def cached_outputs(x, prompt_len, read_all_slots=False):
     K_cache = np.zeros((max_len, d))                 # 1 · preallocated, fixed shape, zeros
