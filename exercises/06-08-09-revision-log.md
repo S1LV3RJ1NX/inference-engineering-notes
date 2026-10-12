@@ -7,14 +7,21 @@
 *Covers: 06*
 
 > [!NOTE]
-> One agent task makes 20 sequential LLM calls. The API's SLO is P99 = 2 s (1% of calls take longer). What fraction of tasks hit at least one slow call, and how should per-call targets be set for agents?
+> An agent does a task by making 20 LLM calls in a row. The API promises P99 = 2 s. What fraction of tasks have at least one slow call, and how should per-call latency targets be set for agents?
 
-**How to solve it: flip to "nothing goes wrong"**
+**What P99 means.** Line up 100 calls fastest to slowest; the 99th is the P99. "P99 = 2 s" means 99 of 100 calls finish under 2 s and 1 is slower, so a single call has a **1% chance** of being slow.
 
-1. One call is fast with probability 0.99.
-2. All 20 fast: 0.99²⁰ ≈ **0.82**.
-3. At least one slow: 1 − 0.82 ≈ **18% of tasks**. Shortcut for small q: k × q = 20 × 1% ≈ 20%.
-4. **Per-call target:** to keep slow tasks to 1%, each call may be slow only ~1% ÷ 20 = 0.05% of the time, i.e. a **P99.95** per-call target. A per-call P99 behaves like a task-level P82.
+**The trap.** "1% of calls are slow, so 1% of tasks are slow" is wrong: a task is **20 calls**, and it's slow if **any one** of them is slow. That's 20 chances, not 1.
+
+**The trick: flip it to "nothing goes wrong".** Counting "at least one slow" directly is messy (it could be the 1st call, the 5th, or two of them). Counting the one clean case, all 20 fast, is easy, so compute that and subtract from 1:
+
+1. One call is fast with probability **0.99**.
+2. All 20 fast = 0.99 × 0.99 × … (20 times) = **0.99²⁰ ≈ 0.82**.
+3. At least one slow = 1 − 0.82 ≈ **18% of tasks**.
+
+So a "1% slow" API makes **18% of agent tasks** hit a slow call, because 20 calls multiply the risk ~20×.
+
+**Part 2, per-call targets.** To keep slow *tasks* at 1%, each call must be far better than 1%: divide the task target by the number of calls, 1% ÷ 20 ≈ 0.05%, a **P99.95** per-call target. Agents that chain many calls need much tighter per-call promises than single-shot apps, or fewer calls.
 
 > [!WARNING]
 > Said "1% of users hit a slow call": 1% is per call, and each task makes 20 calls. Also read P99 as "90% of cases" (it's 99%). Proposed keeping the per-call target at P99, which is far too loose for agents.
@@ -24,7 +31,7 @@
 
 **Computing 0.99²⁰ by hand**
 
-- Rough: (1 − x)ⁿ ≈ 1 − n·x = 1 − 0.2 = 0.80.
+- Rough: "lose 1% twenty times" ≈ 20 × 1% = 20% lost, so ≈ 0.80 survives.
 - Better: (1 − x)ⁿ ≈ e^(−n·x) = e^(−0.2) ≈ 1 − 0.2 + 0.02 = **0.82** (using eʸ ≈ 1 + y + y²/2).
 - Exact: square repeatedly: 0.99² = 0.9801 → ⁴ ≈ 0.9606 → ⁸ ≈ 0.9227 → ¹⁶ ≈ 0.8515; then ¹⁶ × ⁴ ≈ 0.8515 × 0.9606 ≈ 0.818.
 
