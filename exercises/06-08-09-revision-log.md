@@ -72,14 +72,15 @@ So a "1% slow" API makes **18% of agent tasks** hit a slow call, because 20 call
 *Covers: 08, 01*
 
 > [!NOTE]
-> A script times `model.generate()` for Llama 3 8B, batch 1, one H100, and reports 2,000 tokens/s. Why must it be wrong, and what are two likely bugs?
+> Someone times `model.generate()` for Llama 3 8B, batch 1 (one user), one H100, and reports 2,000 tokens/s. Why must it be wrong, and what are two likely bugs?
 
-**Answer**
+**Why it must be wrong.** From lesson 01, batch-1 decode streams all 16 GB of weights per token, and 16 GB ÷ 3.35 TB/s ≈ 4.8 ms/token ≈ **200 tokens/s**. 2,000 is 10× over a hard physical limit (set by **memory bandwidth**, not the math units, which sit idle), so it's a measurement bug, not a breakthrough.
 
-- **Impossible:** batch-1 decode is capped by **memory bandwidth**: 16 GB ÷ 3.35 TB/s ≈ 4.8 ms per token → ≤ ~200 tokens/s. 2,000 is 10× over.
-- **Bug 1, no GPU sync:** CUDA is asynchronous; Python queues work and returns. Stopping the timer without `torch.cuda.synchronize()` (or CUDA events) times the queuing, not the GPU, so the rate looks far too high.
-- **Bug 2, counting the prompt:** dividing prompt + generated tokens by the time instead of generated tokens only (1.5× too high in lesson 08's example).
-- **Fix:** synchronize before reading the clock, count only generated tokens, and report TTFT and TPOT separately.
+**Bug 1 · no GPU synchronization.** The GPU runs **asynchronously**: calling `generate()` just **queues** the work and Python returns immediately. If you stop the timer right there, you measured the *hand-off*, not the GPU finishing, so the time is tiny and tokens/s is huge. Fix: `torch.cuda.synchronize()` (or CUDA events) before reading the clock, so you wait for the GPU.
+
+**Bug 2 · counting the prompt as output.** Dividing the *whole* sequence (prompt + generated) by the time instead of only the generated tokens inflates the rate (1.5× too high in lesson 08's example).
+
+**Fix:** synchronize, count only generated tokens, and report TTFT and TPOT separately.
 
 > [!WARNING]
 > Said the ceiling comes from the arithmetic units (TFLOPS): it's memory bandwidth. Couldn't name the two bugs (no GPU sync, prompt counted as output).
