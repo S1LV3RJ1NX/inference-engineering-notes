@@ -96,14 +96,18 @@ So a "1% slow" API makes **18% of agent tasks** hit a slow call, because 20 call
 *Covers: 09*
 
 > [!NOTE]
-> One user chats with Llama 3 8B on an H100. Dashboard: GPU-util 100%, power 350 W of a 700 W cap, decode 6 ms per token. Is the GPU maxed out? Is half the power cap a problem? How do you measure real usage?
+> One user chats with Llama 3 8B on an H100. Dashboard: GPU-util 100%, power 350 W of a 700 W cap, decode 6 ms per token. The manager wants more GPUs. Is it maxed out? Is half the power cap a problem? How do you measure real usage?
 
-**Answer**
+**Part 1 · what GPU-util measures.** It's a **duty cycle**: the fraction of time that *at least one* kernel was running. An H100 has 132 SMs (compute units); one kernel keeping just one of them busy the whole time still reads **100%**. So 100% means "something was always running", not "maxed out". The manager is misreading it.
 
-- **GPU-util is a duty cycle:** the fraction of time any kernel ran. One kernel on 1 of 132 SMs reads 100%. It says nothing about how busy the GPU is.
-- **Half power is normal:** memory-bound decode leaves the math units waiting, so the board draws less. Real power problems show as power-cap or thermal throttling in clock event reasons.
-- **Measure MBU** = achieved bandwidth ÷ peak bandwidth: 16 GB ÷ 6 ms ≈ 2.67 TB/s, ÷ 3.35 TB/s ≈ **80%**. MFU = (15 GFLOP ÷ 6 ms) ÷ 989 TFLOPS ≈ **0.25%**.
-- **Verdict:** not maxed out. One user at ~80% bandwidth with idle compute, so batching more users is nearly free. Don't buy GPUs.
+**Part 2 · is half the power cap a problem?** No, it's **normal** for decode. Decode is memory-bound, so the math units spend most of their time **waiting for weight bytes**, and idle math units draw less power. A real power issue shows up as **throttling** in the clock event reasons (power-cap or thermal), not as a low draw.
+
+**Part 3 · measure the real usage with MBU.** Decode is limited by bandwidth, so measure how much bandwidth you use: **achieved bytes/s ÷ peak bytes/s**.
+
+- Achieved: 16 GB ÷ 6 ms ≈ **2.67 TB/s**.
+- MBU = 2.67 ÷ 3.35 ≈ **80%**. (Compute: MFU = (15 GFLOP ÷ 6 ms) ÷ 989 TFLOPS ≈ **0.25%**, almost idle.)
+
+**Verdict:** not maxed out. One user already uses ~80% of bandwidth with compute idle, so **batching more users is nearly free**. Don't buy GPUs; raise the batch size.
 
 > [!WARNING]
 > Said half power means "half the arithmetic units are used, so kernels need work": it's expected for memory-bound decode. Divided by the ridge instead of peak bandwidth.
