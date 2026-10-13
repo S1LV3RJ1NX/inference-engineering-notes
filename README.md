@@ -39,6 +39,7 @@ For self-testing there's also a [Revision](#revision) section: interview-style q
 | 19 | Calculate KV Memory, Context & Concurrency Limits | [md](notes/19-kv-memory-context-concurrency-limits.md) | [pdf](pdf/19-kv-memory-context-concurrency-limits.pdf) |
 | 20 | TTFT, TPOT, ITL, E2E & Throughput | [md](notes/20-ttft-tpot-itl-e2e-throughput.md) | [pdf](pdf/20-ttft-tpot-itl-e2e-throughput.pdf) |
 | 21 | Concurrency, Request Rate & Arrival Patterns | [md](notes/21-concurrency-request-rate-arrival-patterns.md) | [pdf](pdf/21-concurrency-request-rate-arrival-patterns.pdf) |
+| 22 | P50, P95, P99 & Variance | [md](notes/22-p50-p95-p99-variance.md) | [pdf](pdf/22-p50-p95-p99-variance.pdf) |
 
 ## Revision
 
