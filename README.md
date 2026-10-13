@@ -38,6 +38,7 @@ For self-testing there's also a [Revision](#revision) section: interview-style q
 | 18 | Calculate Model & Runtime Memory | [md](notes/18-calculate-model-runtime-memory.md) | [pdf](pdf/18-calculate-model-runtime-memory.pdf) |
 | 19 | Calculate KV Memory, Context & Concurrency Limits | [md](notes/19-kv-memory-context-concurrency-limits.md) | [pdf](pdf/19-kv-memory-context-concurrency-limits.pdf) |
 | 20 | TTFT, TPOT, ITL, E2E & Throughput | [md](notes/20-ttft-tpot-itl-e2e-throughput.md) | [pdf](pdf/20-ttft-tpot-itl-e2e-throughput.pdf) |
+| 21 | Concurrency, Request Rate & Arrival Patterns | [md](notes/21-concurrency-request-rate-arrival-patterns.md) | [pdf](pdf/21-concurrency-request-rate-arrival-patterns.pdf) |
 
 ## Revision
 
