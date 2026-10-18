@@ -1889,3 +1889,85 @@ $$t_{\mathrm{step}} \geq \frac{16\ \mathrm{GB} + B \cdot C \cdot 128\ \mathrm{Ki
 > - Treating prompt tokens as free.
 > - Quoting one tokens/s number for a server.
 > - Averaging different shapes into one result.
+
+<div class="lesson-break"></div>
+
+## 27 · Find Saturation, SLO Failure & OOM Boundaries
+
+[Full notes](27-find-saturation-slo-oom-boundaries.md)
+
+
+### Say it in 30 seconds
+
+> A serving GPU has an envelope bounded by three walls, and I find them with one sweep: concurrency 1 to a few hundred per traffic shape, recording throughput, P90 and P99 TTFT and TPOT, KV usage, preemptions, the waiting queue and errors. Saturation is where doubling users adds under 5% and the queue starts growing. SLO failure is where the tail crosses the target, and it usually comes first: 48 users while throughput still climbs at 96, so capacity is the first crossing. Memory fails three ways: refusing to start, silent preemption that recomputes evicted requests and spikes the tail, and CUDA OOM from too little headroom. I cap max_num_seqs at what the cache sustains so overload becomes a visible queue.
+
+### Only numbers worth memorizing
+
+- **Saturated** when doubling concurrency adds **< 5%**. vLLM's default **`max_num_seqs` = 256**.
+
+### Derive, don't memorize
+
+Let *c* = concurrency, *L* = final tokens per request.
+
+#### 1. Capacity is the lowest wall
+
+Each wall gives a max concurrency for the shape; the one you hit first is the limit.
+
+$$c^{*} = \min(c_{\mathrm{TPOT}},\ c_{\mathrm{TTFT}},\ c_{\mathrm{sat}},\ \frac{\mathrm{pool}}{L}) = \min(48,\ 96,\ 128,\ \frac{400\mathrm{k}}{2\mathrm{k}} = 200) = 48$$
+
+> [!TIP]
+> Run below *c\** with headroom for bursts (the map runs 20 users at 4k where the SLO wall is ~28). Every shape has its own *c\**, so repeat per shape.
+
+#### 2. The startup "0.8x" ◆
+
+The engine checks whether one request at `max_model_len` fits the cache.
+
+$$\frac{\mathrm{pool}}{\mathrm{max\_model\_len}} = 0.8 \Rightarrow \mathrm{pool} \approx 0.8 \times 131072 \approx 105\mathrm{k\ tokens} \approx 12.8\ \mathrm{GiB\ at}\ 128\ \mathrm{KiB}$$
+
+> [!TIP]
+> ◆ Lower `max_model_len` below ~105k (65,536 gives 1.6x), or free memory for the cache.
+
+#### 3. A preemption costs a whole re-prefill ◆
+
+$$(\mathrm{prompt} + \mathrm{generated}) \times 32\ \mu\mathrm{s} = (500 + 2000) \times 32\ \mu\mathrm{s} \approx 80\ \mathrm{ms\ of\ GPU\ per\ eviction}$$
+
+#### 4. The cap: what the cache sustains ◆
+
+$$\mathrm{max\_num\_seqs} \approx \frac{\mathrm{pool}}{\mathrm{average\ final}\ L} = \frac{400\mathrm{k}}{2.5\mathrm{k}} = 160$$
+
+> [!TIP]
+> ◆ Toy run: 256 → 188 evictions, P99 worst stall 4.5 s; 160 → 0 evictions, 47 ms, same finish time. Then lower it further to *c\** if the SLO wall is tighter.
+
+### The three memory failures
+
+| | Startup | Preemption | CUDA OOM |
+|---|---|---|---|
+| When | Engine launch | Under load, as replies grow | Under load or graph capture |
+| Looks like | Refuses, or "< 1x" concurrency | No error: tail spikes, counter > 0 | Crash |
+| Cause | Weights + one max-length request don't fit | Admitted caches outgrow the pool | Too little headroom |
+| Fix | Lower `max_model_len` | Cap `max_num_seqs` | Leave headroom |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Tok/s flat, waiting gauge climbing | Saturated: extra users only wait |
+| P99 spikes, no errors, KV at 100% | Preemption: evicted requests recomputing |
+| Throughput still rising but users complain | Past the SLO wall, before saturation |
+| Envelope fine for chat, broken for documents | SLO and memory walls move with length |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Which wall comes first? | Usually the SLO (derivation 1). |
+| How do you spot saturation? | Doubling adds < 5%; requests start waiting. |
+| Why is preemption worse than a crash? | It's silent: only tails and a counter show it. |
+| What happens to an evicted request? | Cache discarded; prompt + output recomputed later. |
+| Why cap max_num_seqs below 256? | Overload becomes a visible queue, not thrash. |
+
+> [!WARNING]
+>
+> - Recording only throughput: you can't see the SLO or memory walls.
+> - Waiting for a crash to find the memory wall: preemption came first.
+> - Leaving `max_num_seqs` at 256 for long requests.

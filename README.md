@@ -44,6 +44,7 @@ For self-testing there's also a [Revision](#revision) section: interview-style q
 | 24 | Establish the Single-Request Baseline | [md](notes/24-establish-single-request-baseline.md) | [pdf](pdf/24-establish-single-request-baseline.pdf) |
 | 25 | Sweep Concurrency & Request Rate | [md](notes/25-sweep-concurrency-request-rate.md) | [pdf](pdf/25-sweep-concurrency-request-rate.pdf) |
 | 26 | Sweep Prompt & Output Length | [md](notes/26-sweep-prompt-output-length.md) | [pdf](pdf/26-sweep-prompt-output-length.pdf) |
+| 27 | Find Saturation, SLO Failure & OOM Boundaries | [md](notes/27-find-saturation-slo-oom-boundaries.md) | [pdf](pdf/27-find-saturation-slo-oom-boundaries.pdf) |
 
 ## Revision
 
