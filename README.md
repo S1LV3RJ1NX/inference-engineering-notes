@@ -41,6 +41,7 @@ For self-testing there's also a [Revision](#revision) section: interview-style q
 | 21 | Concurrency, Request Rate & Arrival Patterns | [md](notes/21-concurrency-request-rate-arrival-patterns.md) | [pdf](pdf/21-concurrency-request-rate-arrival-patterns.pdf) |
 | 22 | P50, P95, P99 & Variance | [md](notes/22-p50-p95-p99-variance.md) | [pdf](pdf/22-p50-p95-p99-variance.pdf) |
 | 23 | Goodput, SLOs & Failure Rates | [md](notes/23-goodput-slos-failure-rates.md) | [pdf](pdf/23-goodput-slos-failure-rates.pdf) |
+| 24 | Establish the Single-Request Baseline | [md](notes/24-establish-single-request-baseline.md) | [pdf](pdf/24-establish-single-request-baseline.pdf) |
 
 ## Revision
 
