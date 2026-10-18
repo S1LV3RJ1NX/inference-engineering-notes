@@ -1813,3 +1813,79 @@ $$\lambda = 12,\ \mu = 10\ \mathrm{req/s}: \quad \mathrm{queue} = 2 \times 60\ \
 > - Running the rate sweep without setting `--request-rate` (infinite burst).
 > - Reporting capacity at the throughput peak.
 > - Judging a sweep by medians only.
+
+<div class="lesson-break"></div>
+
+## 26 · Sweep Prompt & Output Length
+
+[Full notes](26-sweep-prompt-output-length.md)
+
+
+### Say it in 30 seconds
+
+> Shape is prompt and output length, and they hit different parts of the machine. The prompt goes through compute-bound prefill, so it sets TTFT, which grows linearly then bends up with attention; it also grows the cache, and every decode step rereads it, slowing everyone in the batch. The output runs bandwidth-bound decode, so E2E grows by TPOT per token and memory is held the whole time. One output token costs about 150 prompt tokens of time, which is why APIs charge 5× for output. Shape also sets capacity: 225 chat users or 50 summarization users on one H100. So I sweep one axis at a time with EOS ignored and report a shape map, never one averaged number.
+
+### Only numbers worth memorizing
+
+- **1 output token ≈ 150 prompt tokens** of time (one user, 8B, H100). **H100 pool ≈ 450k tokens:** chat 1k/1k → 225, 8k/1k → 50.
+
+### Derive, don't memorize
+
+#### 1. The exchange rate: decode token vs prefill token
+
+$$\frac{t_{\mathrm{out}}}{t_{\mathrm{in}}} = \frac{16\ \mathrm{GB} / 3.35\ \mathrm{TB/s}}{16\ \mathrm{GFLOP} / (0.5 \times 990\ \mathrm{TFLOPS})} = \frac{4.8\ \mathrm{ms}}{32\ \mu\mathrm{s}} \approx 150$$
+
+> [!TIP]
+> At batch 1. ◆ Batching shares decode's weight read, so the ratio shrinks under load; that's why prices sit near 5×, not 150×.
+
+#### 2. Output length is a slope
+
+$$\mathrm{E2E}(N) = 0.03 + 0.012\,(N - 1): \quad 256 \Rightarrow 3.1\ \mathrm{s} \qquad 8192 \Rightarrow 98\ \mathrm{s}$$
+
+#### 3. Fit by final length, not starting length
+
+$$\frac{450\mathrm{k}}{1\mathrm{k} + 1\mathrm{k}} = 225 \qquad \frac{450\mathrm{k}}{8\mathrm{k} + 1\mathrm{k}} = 50 \qquad \mathrm{reasoning}: \frac{450\mathrm{k}}{1\mathrm{k}}\ \mathrm{at\ admission\ vs}\ \frac{450\mathrm{k}}{9\mathrm{k}} = 50\ \mathrm{at\ the\ end}$$
+
+> [!TIP]
+> ◆ 100 reasoning requests start at 100k tokens (22% full) and, at 12 ms per token, fill the pool in (4,500 − 1,000) × 12 ms ≈ 42 s: preemption.
+
+#### 4. Long prompts tax every user's decode ◆
+
+$$t_{\mathrm{step}} \geq \frac{16\ \mathrm{GB} + B \cdot C \cdot 128\ \mathrm{KiB}}{3.35\ \mathrm{TB/s}}: \quad B = 32,\ C = 8\mathrm{k} \Rightarrow \frac{16 + 34\ \mathrm{GB}}{3.35\ \mathrm{TB/s}} \approx 15\ \mathrm{ms}\ (\mathrm{vs}\ 4.8)$$
+
+### What each length drives
+
+| | Prompt length | Output length |
+|---|---|---|
+| Phase | Prefill (compute-bound) | Decode (bandwidth-bound) |
+| Moves | TTFT (linear, then attention²) | E2E slope = TPOT × N |
+| Memory | Cache size from the start | Cache grows and is held longer |
+| Side effect | Slows every user's decode step | Fewer requests finished per second |
+| Public shape | Summarization 8k/1k | Reasoning 1k/8k |
+
+### Symptom → diagnosis
+
+| Symptom | Diagnosis |
+|---|---|
+| Two teams, same server, very different tok/s | Different request shapes |
+| "8k output" run finished suspiciously fast | `--ignore-eos` missing: the model stopped at ~300 |
+| Preemptions minutes into a reasoning load test | Caches grew past the pool after admission |
+| TPOT rose when only prompts got longer | Every step rereads longer caches |
+| Output tok/s fine, requests/s falling | Long outputs hold slots and memory longer |
+| One averaged tok/s hides bad requests | Shapes mixed: report each separately |
+
+### Rapid-fire Q&A
+
+| Question | Crisp answer |
+|---|---|
+| Why is output 5× the price of input? | Decode is bandwidth-bound, one token per weight read (derivation 1). |
+| Does a long prompt affect TPOT? | Yes: its cache is reread every step, for the whole batch. |
+| Why do reasoning models cost so much? | Thinking tokens are output tokens: full decode price, long-held cache. |
+| Is max_tokens the output length? | No: a ceiling, unless you ignore EOS. |
+| Which shapes do public benchmarks use? | 1k/1k chat, 1k/8k reasoning, 8k/1k summarization. |
+
+> [!WARNING]
+>
+> - Treating prompt tokens as free.
+> - Quoting one tokens/s number for a server.
+> - Averaging different shapes into one result.

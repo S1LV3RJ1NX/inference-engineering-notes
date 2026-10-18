@@ -43,6 +43,7 @@ For self-testing there's also a [Revision](#revision) section: interview-style q
 | 23 | Goodput, SLOs & Failure Rates | [md](notes/23-goodput-slos-failure-rates.md) | [pdf](pdf/23-goodput-slos-failure-rates.pdf) |
 | 24 | Establish the Single-Request Baseline | [md](notes/24-establish-single-request-baseline.md) | [pdf](pdf/24-establish-single-request-baseline.pdf) |
 | 25 | Sweep Concurrency & Request Rate | [md](notes/25-sweep-concurrency-request-rate.md) | [pdf](pdf/25-sweep-concurrency-request-rate.pdf) |
+| 26 | Sweep Prompt & Output Length | [md](notes/26-sweep-prompt-output-length.md) | [pdf](pdf/26-sweep-prompt-output-length.pdf) |
 
 ## Revision
 
