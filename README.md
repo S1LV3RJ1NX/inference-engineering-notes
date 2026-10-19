@@ -57,6 +57,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 41 | Preemption, Recomputation & KV Pressure | [md](notes/41-preemption-recomputation-kv-pressure.md) | [pdf](pdf/41-preemption-recomputation-kv-pressure.pdf) |
 | 42 | Tune GPU Memory & KV Capacity | [md](notes/42-tune-gpu-memory-kv-capacity.md) | [pdf](pdf/42-tune-gpu-memory-kv-capacity.pdf) |
 | 43 | Find the SLO-Safe Configuration & Headroom | [md](notes/43-find-slo-safe-configuration-headroom.md) | [pdf](pdf/43-find-slo-safe-configuration-headroom.pdf) |
+| 44 | Reproduce the Long-Prompt Interference Problem | [md](notes/44-reproduce-long-prompt-interference.md) | [pdf](pdf/44-reproduce-long-prompt-interference.pdf) |
 
 ## Revision
 
