@@ -56,6 +56,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 40 | Allocate, Share & Reclaim KV Blocks | [md](notes/40-allocate-share-reclaim-kv-blocks.md) | [pdf](pdf/40-allocate-share-reclaim-kv-blocks.pdf) |
 | 41 | Preemption, Recomputation & KV Pressure | [md](notes/41-preemption-recomputation-kv-pressure.md) | [pdf](pdf/41-preemption-recomputation-kv-pressure.pdf) |
 | 42 | Tune GPU Memory & KV Capacity | [md](notes/42-tune-gpu-memory-kv-capacity.md) | [pdf](pdf/42-tune-gpu-memory-kv-capacity.pdf) |
+| 43 | Find the SLO-Safe Configuration & Headroom | [md](notes/43-find-slo-safe-configuration-headroom.md) | [pdf](pdf/43-find-slo-safe-configuration-headroom.pdf) |
 
 ## Revision
 
