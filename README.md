@@ -43,6 +43,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 27 | Find Saturation, SLO Failure & OOM Boundaries | [md](notes/27-find-saturation-slo-oom-boundaries.md) | [pdf](pdf/27-find-saturation-slo-oom-boundaries.pdf) |
 | 28 | Why Plain PyTorch Serving Breaks Down | [md](notes/28-why-plain-pytorch-serving-breaks-down.md) | [pdf](pdf/28-why-plain-pytorch-serving-breaks-down.pdf) |
 | 29 | OpenAI-Compatible APIs & Streaming | [md](notes/29-openai-compatible-apis-streaming.md) | [pdf](pdf/29-openai-compatible-apis-streaming.pdf) |
+| 30 | Read Engine Metrics & Request State | [md](notes/30-read-engine-metrics-request-state.md) | [pdf](pdf/30-read-engine-metrics-request-state.pdf) |
 
 ## Revision
 
