@@ -45,6 +45,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 29 | OpenAI-Compatible APIs & Streaming | [md](notes/29-openai-compatible-apis-streaming.md) | [pdf](pdf/29-openai-compatible-apis-streaming.pdf) |
 | 30 | Read Engine Metrics & Request State | [md](notes/30-read-engine-metrics-request-state.md) | [pdf](pdf/30-read-engine-metrics-request-state.pdf) |
 | 31 | Follow a Request Through vLLM | [md](notes/31-follow-a-request-through-vllm.md) | [pdf](pdf/31-follow-a-request-through-vllm.pdf) |
+| 32 | One-by-One Serving vs Static Batching | [md](notes/32-one-by-one-serving-vs-static-batching.md) | [pdf](pdf/32-one-by-one-serving-vs-static-batching.pdf) |
 
 ## Revision
 
