@@ -73,6 +73,7 @@ After writing the notes I drilled them with interview-style questions and small 
 | 24-27 | 24, 25, 26, 27 | [pdf](revision/24-27-revision.pdf) | [md](exercises/24-27-revision-log.md) | [find_walls](exercises/24_27_find_walls.py) |
 | 28-31 | 28, 29, 30, 31 | [pdf](revision/28-31-revision.pdf) | [md](exercises/28-31-revision-log.md) | none |
 | 32-36 | 32, 33, 34, 35, 36 | [pdf](revision/32-36-revision.pdf) | [md](exercises/32-36-revision-log.md) | [batching simulator](exercises/32_36_batching_sim.py) |
+| 37-41 | 37, 38, 39, 40, 41 | [pdf](revision/37-41-revision.pdf) | [md](exercises/37-41-revision-log.md) | [block manager](exercises/37_41_block_manager.py) |
 
 ## About
 
