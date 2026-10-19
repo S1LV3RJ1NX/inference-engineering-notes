@@ -7,17 +7,13 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 - **A TL;DR** of the lesson's core claims.
 - **Concept sections** summarized in my own words, with every number and calculation re-checked.
 - **Original figures** (charts, timelines, roofline plots) drawn from the lesson's numbers to make the ideas easier to remember.
-- **An interview cheat sheet** on its own pages: numbers to memorize, formulas, comparisons, symptom-to-fix tables and rapid-fire Q&A.
 
-For self-testing there's also a [Revision](#revision) section: interview-style questions and coding exercises per lesson group.
-
-**Interview tomorrow?** Read the [master cheat sheet](pdf/00-interview-cheat-sheet.pdf) ([md](notes/00-interview-cheat-sheet.md)). It collects every lesson's cheat sheet in one file.
+To revise, use the [Revision](#revision) section: interview-style questions solved from first principles, with coding exercises, per lesson group. (Earlier versions of the notes ended with interview cheat sheets; they're preserved at the [`with-cheat-sheets`](https://github.com/S1LV3RJ1NX/inference-engineering-notes/tree/with-cheat-sheets) tag.)
 
 ## Lessons
 
 | # | Lesson | Notes | PDF |
 |---|---|---|---|
-| 00 | Interview cheat sheet (all lessons) | [md](notes/00-interview-cheat-sheet.md) | [pdf](pdf/00-interview-cheat-sheet.pdf) |
 | 01 | What Is Inference & Inference Engineering? | [md](notes/01-what-is-inference-engineering.md) | [pdf](pdf/01-what-is-inference-engineering.pdf) |
 | 02 | The Inference Stack: Model to GPU to Production | [md](notes/02-the-inference-stack.md) | [pdf](pdf/02-the-inference-stack.pdf) |
 | 03 | Levels of Inference Engineering | [md](notes/03-levels-of-inference-engineering.md) | [pdf](pdf/03-levels-of-inference-engineering.pdf) |
