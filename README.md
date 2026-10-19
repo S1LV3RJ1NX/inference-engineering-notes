@@ -61,6 +61,7 @@ After writing the notes I drilled them with interview-style questions and small 
 | 18-19 | 18, 19 | [pdf](revision/18-19-revision.pdf) | [md](exercises/18-19-revision-log.md) | [paged KV allocator](exercises/18_19_paged_kv.py) |
 | 20-23 | 20, 21, 22, 23 | [pdf](revision/20-23-revision.pdf) | [md](exercises/20-23-revision-log.md) | none |
 | 24-27 | 24, 25, 26, 27 | [pdf](revision/24-27-revision.pdf) | [md](exercises/24-27-revision-log.md) | [find_walls](exercises/24_27_find_walls.py) |
+| 28-31 | 28, 29, 30, 31 | [pdf](revision/28-31-revision.pdf) | [md](exercises/28-31-revision-log.md) | none |
 
 ## About
 
