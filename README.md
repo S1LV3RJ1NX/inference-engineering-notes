@@ -48,6 +48,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 32 | One-by-One Serving vs Static Batching | [md](notes/32-one-by-one-serving-vs-static-batching.md) | [pdf](pdf/32-one-by-one-serving-vs-static-batching.pdf) |
 | 33 | Iteration-Level Scheduling | [md](notes/33-iteration-level-scheduling.md) | [pdf](pdf/33-iteration-level-scheduling.pdf) |
 | 34 | Continuous Batching | [md](notes/34-continuous-batching.md) | [pdf](pdf/34-continuous-batching.pdf) |
+| 35 | Token Budgets, Max Sequences & Max Batched Tokens | [md](notes/35-token-budgets-max-seqs-max-batched-tokens.md) | [pdf](pdf/35-token-budgets-max-seqs-max-batched-tokens.pdf) |
 
 ## Revision
 
