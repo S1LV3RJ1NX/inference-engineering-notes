@@ -47,6 +47,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 31 | Follow a Request Through vLLM | [md](notes/31-follow-a-request-through-vllm.md) | [pdf](pdf/31-follow-a-request-through-vllm.pdf) |
 | 32 | One-by-One Serving vs Static Batching | [md](notes/32-one-by-one-serving-vs-static-batching.md) | [pdf](pdf/32-one-by-one-serving-vs-static-batching.pdf) |
 | 33 | Iteration-Level Scheduling | [md](notes/33-iteration-level-scheduling.md) | [pdf](pdf/33-iteration-level-scheduling.pdf) |
+| 34 | Continuous Batching | [md](notes/34-continuous-batching.md) | [pdf](pdf/34-continuous-batching.pdf) |
 
 ## Revision
 
