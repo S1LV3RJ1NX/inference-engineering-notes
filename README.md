@@ -52,6 +52,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 36 | Queueing, Fairness, Cancellation & Preemption | [md](notes/36-queueing-fairness-cancellation-preemption.md) | [pdf](pdf/36-queueing-fairness-cancellation-preemption.pdf) |
 | 37 | Why Contiguous KV Allocation Breaks | [md](notes/37-why-contiguous-kv-allocation-breaks.md) | [pdf](pdf/37-why-contiguous-kv-allocation-breaks.pdf) |
 | 38 | KV Blocks, Fragmentation & Block Tables | [md](notes/38-kv-blocks-fragmentation-block-tables.md) | [pdf](pdf/38-kv-blocks-fragmentation-block-tables.pdf) |
+| 39 | PagedAttention | [md](notes/39-pagedattention.md) | [pdf](pdf/39-pagedattention.pdf) |
 
 ## Revision
 
