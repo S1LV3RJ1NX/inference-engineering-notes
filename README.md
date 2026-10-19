@@ -49,6 +49,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 33 | Iteration-Level Scheduling | [md](notes/33-iteration-level-scheduling.md) | [pdf](pdf/33-iteration-level-scheduling.pdf) |
 | 34 | Continuous Batching | [md](notes/34-continuous-batching.md) | [pdf](pdf/34-continuous-batching.pdf) |
 | 35 | Token Budgets, Max Sequences & Max Batched Tokens | [md](notes/35-token-budgets-max-seqs-max-batched-tokens.md) | [pdf](pdf/35-token-budgets-max-seqs-max-batched-tokens.pdf) |
+| 36 | Queueing, Fairness, Cancellation & Preemption | [md](notes/36-queueing-fairness-cancellation-preemption.md) | [pdf](pdf/36-queueing-fairness-cancellation-preemption.pdf) |
 
 ## Revision
 
