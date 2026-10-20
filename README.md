@@ -65,6 +65,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 49 | RadixAttention, Eviction & Cache Churn | [md](notes/49-radixattention-eviction-cache-churn.md) | [pdf](pdf/49-radixattention-eviction-cache-churn.pdf) |
 | 50 | Precision, Memory & Hardware Support | [md](notes/50-precision-memory-hardware-support.md) | [pdf](pdf/50-precision-memory-hardware-support.pdf) |
 | 51 | BF16, FP8, INT8 & 4-Bit Inference | [md](notes/51-bf16-fp8-int8-4-bit-inference.md) | [pdf](pdf/51-bf16-fp8-int8-4-bit-inference.pdf) |
+| 52 | AWQ, GPTQ & SmoothQuant | [md](notes/52-awq-gptq-smoothquant.md) | [pdf](pdf/52-awq-gptq-smoothquant.pdf) |
 
 ## Revision
 
