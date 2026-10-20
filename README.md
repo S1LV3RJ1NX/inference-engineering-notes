@@ -71,6 +71,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 55 | Stop Guessing: Build a Profiling Workflow | [md](notes/55-build-a-profiling-workflow.md) | [pdf](pdf/55-build-a-profiling-workflow.pdf) |
 | 56 | PyTorch Profiler & Memory Snapshots | [md](notes/56-pytorch-profiler-memory-snapshots.md) | [pdf](pdf/56-pytorch-profiler-memory-snapshots.pdf) |
 | 57 | Nsight Systems | [md](notes/57-nsight-systems.md) | [pdf](pdf/57-nsight-systems.pdf) |
+| 58 | Nsight Compute | [md](notes/58-nsight-compute.md) | [pdf](pdf/58-nsight-compute.pdf) |
 
 ## Revision
 
