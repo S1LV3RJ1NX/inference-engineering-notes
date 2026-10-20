@@ -89,6 +89,7 @@ After writing the notes I drilled them with interview-style questions and small 
 | 37-41 | 37, 38, 39, 40, 41 | [pdf](revision/37-41-revision.pdf) | [md](exercises/37-41-revision-log.md) | [block manager](exercises/37_41_block_manager.py) |
 | 42-45 | 42, 43, 44, 45 | [pdf](revision/42-45-revision.pdf) | [md](exercises/42-45-revision-log.md) | none |
 | 46-49 | 46, 47, 48, 49 | [pdf](revision/46-49-revision.pdf) | [md](exercises/46-49-revision-log.md) | none |
+| 50-54 | 50, 51, 52, 53, 54 | [pdf](revision/50-54-revision.pdf) | [md](exercises/50-54-revision-log.md) | none |
 
 ## About
 
