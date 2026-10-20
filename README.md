@@ -74,6 +74,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 58 | Nsight Compute | [md](notes/58-nsight-compute.md) | [pdf](pdf/58-nsight-compute.pdf) |
 | 59 | Profile Prefill vs Decode | [md](notes/59-profile-prefill-vs-decode.md) | [pdf](pdf/59-profile-prefill-vs-decode.pdf) |
 | 60 | GPU Execution, Memory Hierarchy & Kernel Launches | [md](notes/60-gpu-execution-memory-hierarchy-kernel-launches.md) | [pdf](pdf/60-gpu-execution-memory-hierarchy-kernel-launches.pdf) |
+| 61 | Compute-Bound vs Memory-Bound & the Roofline Model | [md](notes/61-compute-vs-memory-bound-roofline.md) | [pdf](pdf/61-compute-vs-memory-bound-roofline.pdf) |
 
 ## Revision
 
