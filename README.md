@@ -67,6 +67,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 51 | BF16, FP8, INT8 & 4-Bit Inference | [md](notes/51-bf16-fp8-int8-4-bit-inference.md) | [pdf](pdf/51-bf16-fp8-int8-4-bit-inference.pdf) |
 | 52 | AWQ, GPTQ & SmoothQuant | [md](notes/52-awq-gptq-smoothquant.md) | [pdf](pdf/52-awq-gptq-smoothquant.pdf) |
 | 53 | Quantized GEMM & Dequantization Overhead | [md](notes/53-quantized-gemm-dequantization-overhead.md) | [pdf](pdf/53-quantized-gemm-dequantization-overhead.pdf) |
+| 54 | Measure Quality Regression | [md](notes/54-measure-quality-regression.md) | [pdf](pdf/54-measure-quality-regression.pdf) |
 
 ## Revision
 
