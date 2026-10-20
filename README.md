@@ -68,6 +68,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 52 | AWQ, GPTQ & SmoothQuant | [md](notes/52-awq-gptq-smoothquant.md) | [pdf](pdf/52-awq-gptq-smoothquant.pdf) |
 | 53 | Quantized GEMM & Dequantization Overhead | [md](notes/53-quantized-gemm-dequantization-overhead.md) | [pdf](pdf/53-quantized-gemm-dequantization-overhead.pdf) |
 | 54 | Measure Quality Regression | [md](notes/54-measure-quality-regression.md) | [pdf](pdf/54-measure-quality-regression.pdf) |
+| 55 | Stop Guessing: Build a Profiling Workflow | [md](notes/55-build-a-profiling-workflow.md) | [pdf](pdf/55-build-a-profiling-workflow.pdf) |
 
 ## Revision
 
