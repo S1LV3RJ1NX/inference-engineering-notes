@@ -59,6 +59,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 43 | Find the SLO-Safe Configuration & Headroom | [md](notes/43-find-slo-safe-configuration-headroom.md) | [pdf](pdf/43-find-slo-safe-configuration-headroom.pdf) |
 | 44 | Reproduce the Long-Prompt Interference Problem | [md](notes/44-reproduce-long-prompt-interference.md) | [pdf](pdf/44-reproduce-long-prompt-interference.pdf) |
 | 45 | Chunked Prefill & Choosing the Chunk Size | [md](notes/45-chunked-prefill-choosing-chunk-size.md) | [pdf](pdf/45-chunked-prefill-choosing-chunk-size.pdf) |
+| 46 | Find Repeated Prefix Computation | [md](notes/46-find-repeated-prefix-computation.md) | [pdf](pdf/46-find-repeated-prefix-computation.pdf) |
 
 ## Revision
 
