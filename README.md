@@ -72,6 +72,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 56 | PyTorch Profiler & Memory Snapshots | [md](notes/56-pytorch-profiler-memory-snapshots.md) | [pdf](pdf/56-pytorch-profiler-memory-snapshots.pdf) |
 | 57 | Nsight Systems | [md](notes/57-nsight-systems.md) | [pdf](pdf/57-nsight-systems.pdf) |
 | 58 | Nsight Compute | [md](notes/58-nsight-compute.md) | [pdf](pdf/58-nsight-compute.pdf) |
+| 59 | Profile Prefill vs Decode | [md](notes/59-profile-prefill-vs-decode.md) | [pdf](pdf/59-profile-prefill-vs-decode.pdf) |
 
 ## Revision
 
