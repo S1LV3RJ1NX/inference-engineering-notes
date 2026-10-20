@@ -63,6 +63,7 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 | 47 | Automatic Prefix Caching | [md](notes/47-automatic-prefix-caching.md) | [pdf](pdf/47-automatic-prefix-caching.pdf) |
 | 48 | Shared Prompts, RAG Context & Multi-Turn Reuse | [md](notes/48-shared-prompts-rag-multi-turn-reuse.md) | [pdf](pdf/48-shared-prompts-rag-multi-turn-reuse.pdf) |
 | 49 | RadixAttention, Eviction & Cache Churn | [md](notes/49-radixattention-eviction-cache-churn.md) | [pdf](pdf/49-radixattention-eviction-cache-churn.pdf) |
+| 50 | Precision, Memory & Hardware Support | [md](notes/50-precision-memory-hardware-support.md) | [pdf](pdf/50-precision-memory-hardware-support.pdf) |
 
 ## Revision
 
