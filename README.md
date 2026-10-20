@@ -8,7 +8,7 @@ Each lesson has a Markdown version under [`notes/`](notes/) and a printable PDF 
 - **Concept sections** summarized in my own words, with every number and calculation re-checked.
 - **Original figures** (charts, timelines, roofline plots) drawn from the lesson's numbers to make the ideas easier to remember.
 
-To revise, use the [Revision](#revision) section: interview-style questions solved from first principles, with coding exercises, per lesson group. (Earlier versions of the notes ended with interview cheat sheets; they're preserved at the [`with-cheat-sheets`](https://github.com/S1LV3RJ1NX/inference-engineering-notes/tree/with-cheat-sheets) tag.)
+To revise, use the [Revision](#revision) section: six themed interview packs of mock-interview questions with model answers, plus coding exercises. (Earlier versions of the notes ended with interview cheat sheets; they're preserved at the [`with-cheat-sheets`](https://github.com/S1LV3RJ1NX/inference-engineering-notes/tree/with-cheat-sheets) tag.)
 
 ## Lessons
 
@@ -71,25 +71,16 @@ To revise, use the [Revision](#revision) section: interview-style questions solv
 
 ## Revision
 
-After writing the notes I drilled them with interview-style questions and small coding exercises, one lesson group at a time. Each group has a **revision PDF** under [`revision/`](revision/) (the questions, my worked reasoning, where I slipped, and a one-line takeaway per question) built from a Markdown log in [`exercises/`](exercises/), plus any Python exercises. Cover the question, answer it yourself, then check.
+After writing the notes I drilled them with interview-style questions, then merged every drill into **six themed interview packs** under [`revision/`](revision/). Each card is a mock-interview question followed by a 60-second answer, the key numbers, the likely follow-up and the trap I actually fell into. Read the question, answer it out loud, then check. Each pack ends with the coding exercises from [`exercises/`](exercises/) that back it up.
 
-| Group | Lessons | Revision | Log | Coding exercise |
+| Pack | Theme | Lessons | PDF | Markdown |
 |---|---|---|---|---|
-| 01-02 | 01, 02 | [pdf](revision/01-02-revision.pdf) | [md](exercises/01-02-revision-log.md) | [router](exercises/02_prefill_tokens.py) |
-| 03-04 | 03, 04 | [pdf](revision/03-04-revision.pdf) | [md](exercises/03-04-revision-log.md) | [Amdahl](exercises/03_04_amdahl.py) |
-| 05-07 | 05, 07 | [pdf](revision/05-07-revision.pdf) | [md](exercises/05-07-revision-log.md) | [online softmax](exercises/05_07_online_softmax.py) |
-| 06-08-09 | 06, 08, 09 | [pdf](revision/06-08-09-revision.pdf) | [md](exercises/06-08-09-revision-log.md) | [tail simulation](exercises/06_08_09_tail_sim.py) |
-| 10-13 | 10, 11, 12, 13 | [pdf](revision/10-13-revision.pdf) | [md](exercises/10-13-revision-log.md) | [sampler](exercises/10_13_sampler.py) |
-| 14-17 | 14, 15, 16, 17 | [pdf](revision/14-17-revision.pdf) | [md](exercises/14-17-revision-log.md) | [toy KV cache](exercises/14_17_kv_cache.py) |
-| 18-19 | 18, 19 | [pdf](revision/18-19-revision.pdf) | [md](exercises/18-19-revision-log.md) | [paged KV allocator](exercises/18_19_paged_kv.py) |
-| 20-23 | 20, 21, 22, 23 | [pdf](revision/20-23-revision.pdf) | [md](exercises/20-23-revision-log.md) | none |
-| 24-27 | 24, 25, 26, 27 | [pdf](revision/24-27-revision.pdf) | [md](exercises/24-27-revision-log.md) | [find_walls](exercises/24_27_find_walls.py) |
-| 28-31 | 28, 29, 30, 31 | [pdf](revision/28-31-revision.pdf) | [md](exercises/28-31-revision-log.md) | none |
-| 32-36 | 32, 33, 34, 35, 36 | [pdf](revision/32-36-revision.pdf) | [md](exercises/32-36-revision-log.md) | [batching simulator](exercises/32_36_batching_sim.py) |
-| 37-41 | 37, 38, 39, 40, 41 | [pdf](revision/37-41-revision.pdf) | [md](exercises/37-41-revision-log.md) | [block manager](exercises/37_41_block_manager.py) |
-| 42-45 | 42, 43, 44, 45 | [pdf](revision/42-45-revision.pdf) | [md](exercises/42-45-revision-log.md) | none |
-| 46-49 | 46, 47, 48, 49 | [pdf](revision/46-49-revision.pdf) | [md](exercises/46-49-revision-log.md) | none |
-| 50-54 | 50, 51, 52, 53, 54 | [pdf](revision/50-54-revision.pdf) | [md](exercises/50-54-revision-log.md) | none |
+| 01 | Speed physics | 01–04, 06, 09, 15, 16, 24, 25, 28, 44 | [pdf](revision/01-speed-physics.pdf) | [md](revision/01-speed-physics.md) |
+| 02 | Memory and capacity | 03–05, 07, 16–19, 25, 42, 50 | [pdf](revision/02-memory-capacity.pdf) | [md](revision/02-memory-capacity.md) |
+| 03 | Inside the serving engine | 19, 26, 28, 30, 32–41, 44, 45 | [pdf](revision/03-engine-internals.pdf) | [md](revision/03-engine-internals.md) |
+| 04 | Measure and operate | 01, 06, 08, 15, 16, 20–25, 27, 30, 43 | [pdf](revision/04-measure-operate.pdf) | [md](revision/04-measure-operate.md) |
+| 05 | Prefix caching and quantization | 03, 04, 06, 11, 14, 22, 40, 46–54 | [pdf](revision/05-optimization-levers.pdf) | [md](revision/05-optimization-levers.md) |
+| 06 | Model internals | 05, 10–14, 17 | [pdf](revision/06-model-internals.pdf) | [md](revision/06-model-internals.md) |
 
 ## About
 
