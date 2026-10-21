@@ -1,6 +1,6 @@
 # Pack 01 · Speed physics
 
-*Why decode is limited by memory, prefill by math, and how batching changes both. Lessons 01–04, 06, 09, 15, 16, 24, 25, 28, 44. Answer each question out loud in about a minute, then check the card.*
+*Why decode is limited by memory, prefill by math, and how batching changes both. Lessons 01–04, 06, 09, 15, 16, 24, 25, 28, 44, 59–61. Answer each question out loud in about a minute, then check the card.*
 
 ## Q1 · "Can we advertise 300 tokens/s?" <span class="badge miss">priority</span>
 
@@ -67,7 +67,7 @@
 
 ## Q4 · When does decode become compute-bound? <span class="badge ok">solid</span>
 
-*Lessons: 02, 04*
+*Lessons: 02, 04, 61*
 
 > [!NOTE]
 > With short contexts, you keep raising the decode batch. At what batch does decode flip from memory-bound to compute-bound, and why doesn't that happen as early in practice?
@@ -87,7 +87,7 @@
 
 ## Q5 · "GPU-util is 100%, we need more GPUs" <span class="badge miss">priority</span>
 
-*Lessons: 09, 16*
+*Lessons: 09, 16, 59, 60*
 
 > [!NOTE]
 > One user chats with Llama 3 8B on an H100. The dashboard shows GPU-util 100%, power 350 W of a 700 W cap, and 6 ms per decode token. The manager wants more GPUs. Is it maxed out?
@@ -129,7 +129,7 @@
 
 ## Q7 · Kernel launches and Amdahl <span class="badge miss">priority</span>
 
-*Lessons: 03, 04, 09*
+*Lessons: 03, 04, 09, 60*
 
 > [!NOTE]
 > A decode step launches about 300 kernels at about 4 µs of CPU time each, against an ideal step of 4.8 ms. How much does that cost, and how do you cut it? Separately, a teammate made attention (30% of the step) 3× faster and claims decode is now 3× faster. What's the real speedup?

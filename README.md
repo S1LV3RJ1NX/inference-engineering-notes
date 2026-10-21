@@ -82,12 +82,13 @@ After writing the notes I drilled them with interview-style questions, then merg
 
 | Pack | Theme | Lessons | PDF | Markdown |
 |---|---|---|---|---|
-| 01 | Speed physics | 01–04, 06, 09, 15, 16, 24, 25, 28, 44 | [pdf](revision/01-speed-physics.pdf) | [md](revision/01-speed-physics.md) |
+| 01 | Speed physics | 01–04, 06, 09, 15, 16, 24, 25, 28, 44, 59–61 | [pdf](revision/01-speed-physics.pdf) | [md](revision/01-speed-physics.md) |
 | 02 | Memory and capacity | 03–05, 07, 16–19, 25, 42, 50 | [pdf](revision/02-memory-capacity.pdf) | [md](revision/02-memory-capacity.md) |
 | 03 | Inside the serving engine | 19, 26, 28, 30, 32–41, 44, 45 | [pdf](revision/03-engine-internals.pdf) | [md](revision/03-engine-internals.md) |
 | 04 | Measure and operate | 01, 06, 08, 15, 16, 20–25, 27, 30, 43 | [pdf](revision/04-measure-operate.pdf) | [md](revision/04-measure-operate.md) |
 | 05 | Prefix caching and quantization | 03, 04, 06, 11, 14, 22, 40, 46–54 | [pdf](revision/05-optimization-levers.pdf) | [md](revision/05-optimization-levers.md) |
 | 06 | Model internals | 05, 10–14, 17 | [pdf](revision/06-model-internals.pdf) | [md](revision/06-model-internals.md) |
+| 07 | Profiling and the GPU | 55–61 | [pdf](revision/07-profiling.pdf) | [md](revision/07-profiling.md) |
 
 ## About
 
