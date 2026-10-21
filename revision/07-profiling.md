@@ -1,6 +1,6 @@
 # Pack 07 · Profiling and the GPU
 
-*How to find where the time goes before changing anything: the measure-floor-locate loop, memory snapshots, Nsight Systems and Nsight Compute, isolating prefill from decode, and why fusion is a memory fix. Lessons 55–61. Answer each question out loud in about a minute, then check the card.*
+*How to find where the time goes before changing anything: the measure-floor-locate loop, memory snapshots, Nsight Systems and Nsight Compute, and why fusion is a memory fix. Lessons 55–58, 60, 61. Answer each question out loud in about a minute, then check the card.*
 
 ## Q1 · "Just turn on torch.compile" <span class="badge miss">priority</span>
 
@@ -90,29 +90,7 @@
 > [!TIP]
 > I hadn't used Nsight Compute and couldn't read the report: replay time, the Speed Of Light pair and occupancy all needed explaining.
 
-## Q5 · "4-bit gives no speedup, drop it" <span class="badge ok">solid</span>
-
-*Lessons: 59*
-
-> [!NOTE]
-> A teammate benchmarks 4-bit weight-only quantization with 2,000-token prompts and `max_tokens=1`, sees no change and reports 4-bit useless. What did they measure, why didn't it help, and how would you benchmark it properly?
-
-**60-second answer**
-
-- `max_tokens=1` makes the whole request one prefill pass: they measured **TTFT**.
-- Prefill is **compute-bound**: about 32 ms of math against under 5 ms of reading the weights once. Weight-only 4-bit cuts bytes, but the math still runs in BF16, so prefill barely moves.
-- Decode rereads all weights for every token, so 4× fewer bytes makes each step **several times faster**.
-- Proper test: short, fixed prompt, long answer, compare **TPOT**. Isolate phases this way (or with NVTX ranges), because serving engines mix them in one step.
-- Yardsticks: **MFU** for prefill, **MBU** for decode. A decode step at 1% MFU is normal.
-
-**Key numbers:** prefill 2 × 8B × 2,000 ≈ 32 TFLOP ÷ 989 TFLOPS ≈ 32 ms; decode ≈ 16.3 GB ÷ 3.35 TB/s ≈ 4.9 ms against 0.016 ms of math (≈ 300×); decode is > 95% of a 300-token answer.
-
-**Likely follow-up:** "Does the decode gain hold at batch 256?" It shrinks: as the batch approaches the ridge, decode turns compute-bound and fewer weight bytes stop mattering. Benchmark at your real batch size.
-
-> [!TIP]
-> I named the right fix but not the yardsticks: MFU judges prefill, MBU judges decode.
-
-## Q6 · Three elementwise ops in eager mode <span class="badge miss">priority</span>
+## Q5 · Three elementwise ops in eager mode <span class="badge miss">priority</span>
 
 *Lessons: 60, 61*
 

@@ -1,6 +1,6 @@
 # Pack 05 · Optimization levers: prefix caching and quantization
 
-*Two levers that change the bill: reusing prompt work, and storing or computing in fewer bits. Lessons 03, 04, 06, 11, 14, 22, 40, 46–54. Answer each question out loud in about a minute, then check the card.*
+*Two levers that change the bill: reusing prompt work, and storing or computing in fewer bits. Lessons 03, 04, 06, 11, 14, 22, 40, 46–54, 59. Answer each question out loud in about a minute, then check the card.*
 
 ## Q1 · One dynamic line kills the cache <span class="badge miss">priority</span>
 
@@ -151,7 +151,7 @@
 
 ## Q8 · Why 4-bit stops paying off at big batches <span class="badge miss">priority</span>
 
-*Lessons: 50, 51, 53*
+*Lessons: 50, 51, 53, 59*
 
 > [!NOTE]
 > A 4-bit AWQ model with a Marlin kernel is about 3.5× faster than BF16 at batch 1, about 1.5× at batch 128, and break-even on long prefills. Why? Why would a kernel that expands the whole matrix to 16 bits first be slower than plain BF16? What would you use for a throughput-heavy workload on H100s?
@@ -161,11 +161,11 @@
 - Batch 1 is limited by **reading weights**: 4× fewer bytes gives nearly 4× (≈ 3.9× with scales).
 - Bigger batches reuse each weight for more tokens, so the limit moves to **math**, which still runs in 16 bits, plus unpacking every tile.
 - Naive expand-first reads 0.5 B, writes 2 B, reads 2 B again: **4.5 bytes per weight** versus 2. Good kernels unpack **in registers** and never write 16-bit weights back.
-- For throughput use **FP8 W8A8**: both inputs go straight into 8-bit tensor cores, scales applied once at the end, ≈ **2× the math** (1,979 vs 989 TFLOPS).
+- For throughput use **FP8 W8A8**: both inputs go straight into 8-bit tensor cores, scales applied once at the end, ≈ **2× the math** (1,979 vs 989 TFLOPS). So: 4-bit weight-only for a latency-first chatbot, FP8 W8A8 for an overnight batch job.
 
-**Key numbers:** 4-bit weight-only saves bytes; 8-bit weights + activations saves math.
+**Key numbers:** 4-bit weight-only saves bytes; 8-bit weights + activations saves math. Prefill of 2,000 tokens ≈ 32 ms of math against < 5 ms of weight reading.
 
-**Likely follow-up:** "Latency-first chatbot versus overnight batch job?" 4-bit weight-only for the chatbot; FP8 W8A8 for the batch job.
+**Likely follow-up:** "A teammate tested 4-bit with 2,000-token prompts and `max_tokens=1`, saw no change, and wants to drop it." That only measured prefill (TTFT), which is compute-bound. Benchmark decode instead: short fixed prompt, long answer, compare TPOT. Judge prefill by MFU and decode by MBU; a decode step at 1% MFU is normal.
 
 > [!TIP]
 > I couldn't start. Ask first: is this workload limited by bytes or by math?
