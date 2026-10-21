@@ -53,9 +53,10 @@
 
 **60-second answer**
 
-- In a batch the **16 GB of weights is read once per step for everyone**. Only each user's KV cache is extra.
-- KV read per step: 32 × 1,000 × 128 KB ≈ 4.1 GB. Step ≈ (16 + 4.1) GB ÷ 3.35 TB/s ≈ **6.0 ms**, versus 4.8 ms alone.
-- Each user slows by about **25%**, while total throughput rises from ≈ 200 to 32 ÷ 6 ms ≈ **5,300 tokens/s**, about **25×**.
+- **Alone:** each step reads the 16 GB of weights, 16 GB ÷ 3.35 TB/s ≈ **4.8 ms**, and makes 1 token: ≈ **200 tokens/s**.
+- **Batched:** the **16 GB of weights is read once per step for everyone**. Only each user's KV cache is extra: 32 × 1,000 × 128 KB ≈ 4.1 GB. Step ≈ (16 + 4.1) GB ÷ 3.35 TB/s ≈ **6.0 ms**, and that one step makes **32 tokens**, one per user.
+- **Per user:** still 1 token per step, but the step is 6.0 ÷ 4.8 = 1.25× longer, so each user is about **25% slower** (≈ 167 tokens/s instead of 200).
+- **Whole GPU:** 32 tokens every 6 ms = 32 ÷ 0.006 s ≈ **5,300 tokens/s**, about **25×** the 200 alone. Not the full 32× because the step got 1.25× longer: 32 ÷ 1.25 ≈ 25.6.
 - The cost of batching is **KV memory**, which grows with batch × context.
 
 **Key numbers:** step ≈ (weights + batch × context × KV per token) ÷ bandwidth; total tokens/s = batch ÷ step; per user = 1 ÷ step.
