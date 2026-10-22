@@ -53,11 +53,12 @@
 
 **60-second answer**
 
-- **Alone:** each step reads the 16 GB of weights, 16 GB ÷ 3.35 TB/s ≈ **4.8 ms**, and makes 1 token: ≈ **200 tokens/s**.
-- **Batched:** the **16 GB of weights is read once per step for everyone**. Only each user's KV cache is extra: 32 × 1,000 × 128 KB ≈ 4.1 GB. Step ≈ (16 + 4.1) GB ÷ 3.35 TB/s ≈ **6.0 ms**, and that one step makes **32 tokens**, one per user.
-- **Per user:** still 1 token per step, but the step is 6.0 ÷ 4.8 = 1.25× longer, so each user is about **25% slower** (≈ 167 tokens/s instead of 200).
-- **Whole GPU:** 32 tokens every 6 ms = 32 ÷ 0.006 s ≈ **5,300 tokens/s**, about **25×** the 200 alone. Not the full 32× because the step got 1.25× longer: 32 ÷ 1.25 ≈ 25.6.
-- The cost of batching is **KV memory**, which grows with batch × context.
+- **One user alone:** each decode step reads all 16 GB of weights, which takes 16 GB ÷ 3.35 TB/s ≈ **4.8 ms**. Each step produces 1 token, so the user gets 1 ÷ 4.8 ms ≈ **200 tokens/s**.
+- **32 users batched:** the **16 GB of weights is still read once per step, shared by all 32 users**. The extra cost is each user's own KV cache: 32 × 1,000 tokens × 128 KB ≈ 4.1 GB. The step reads 16 + 4.1 ≈ 20.1 GB, so it takes 20.1 GB ÷ 3.35 TB/s ≈ **6.0 ms**, and that one step produces **32 tokens**, one for each user.
+- **What each user feels:** they still get 1 token per step, but a step now takes 6.0 ms instead of 4.8 ms. Since 6.0 ÷ 4.8 = 1.25, each user is **25% slower**: about 167 tokens/s instead of 200.
+- **What the GPU produces:** 32 tokens every 6 ms, so 32 ÷ 0.006 s ≈ **5,300 tokens/s**. Compared with 200 tokens/s alone, that's 5,300 ÷ 200 ≈ **25×**.
+- It's 25× and not the full 32× because the step got 1.25× longer: 32 ÷ 1.25 ≈ 25.6.
+- The price of batching is **KV memory**, which grows with batch size × context length.
 
 **Key numbers:** step ≈ (weights + batch × context × KV per token) ÷ bandwidth; total tokens/s = batch ÷ step; per user = 1 ÷ step.
 
