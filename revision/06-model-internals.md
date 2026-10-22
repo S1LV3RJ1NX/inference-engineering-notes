@@ -11,14 +11,15 @@
 
 **60-second answer**
 
-- A dot product of two d-dimensional vectors with unit-variance entries has variance d, so scores spread by **√d ≈ 11** for d = 128.
-- Without scaling, softmax becomes nearly **one-hot**: attention locks onto one token and gradients vanish. ÷ √d restores a spread of about 1. It rescales the spread; it doesn't center anything.
-- e^x **overflows** quickly in FP16 (max 65,504, so e^12 is already too big). Subtracting the max keeps every exponent ≤ 0.
-- It **doesn't change the result**: softmax(x − c) = softmax(x), since e^(−c) cancels top and bottom.
+- **Why scores grow with d:** a dot product of two d-dimensional vectors with unit-variance entries is a sum of d terms, so its variance is d and its spread is √d. For d = 128 that's √128 ≈ **11**.
+- **Without ÷ √d:** scores that spread by about 11 make softmax nearly **one-hot**, which means attention locks onto a single token and the gradients vanish.
+- **What ÷ √d does:** dividing by √d brings the spread back to about 1. It only rescales the spread; it doesn't center anything.
+- **Why subtract the max:** e^x **overflows** quickly in FP16, because the largest FP16 value is 65,504, so even e^12 is already too big. Subtracting the row's max makes every exponent ≤ 0, so every e^x is at most 1 and can't overflow.
+- **It doesn't change the result:** softmax(x − c) = softmax(x), because subtracting c multiplies every term, top and bottom, by e^(−c), and that factor cancels.
 
 **Key numbers:** softmax(x)ᵢ = e^(xᵢ − max) ÷ Σⱼ e^(xⱼ − max).
 
-**Likely follow-up:** "FlashAttention sees scores in blocks. How does it get an exact softmax?" Online softmax: keep a running max and sum; when the max grows, rescale the old sum and the output accumulator by e^(m_old − m_new).
+**Likely follow-up:** "FlashAttention sees scores in blocks. How does it get an exact softmax?" It uses online softmax: it keeps a running max and a running sum as each block arrives. When a new block raises the max, it rescales the old sum and the output accumulator by e^(m_old − m_new), so the result is the same as if it had used the final max from the start.
 
 > [!TIP]
 > I said √d "centers the mean". In the online-softmax code I forgot the running max must never decrease, and forgot to rescale the accumulator.
@@ -32,14 +33,15 @@
 
 **60-second answer**
 
-- e^(−∞) = 0, so masked tokens get exactly zero weight. Adding 0 would leave e⁰ = 1, a full weight on the future.
-- A new token sits in every earlier row's **masked future**, so earlier rows, and the K and V computed for earlier tokens, **never change**. That's why caching K and V is exact.
-- Naive loop: N × P + N(N − 1) ÷ 2 = 256 × 512 + 32,640 ≈ **164k token passes**, versus P + N = **768** needed: ≈ 213× waste.
-- The KV cache turns decode into "one new token attends to the cached past".
+- **Why −∞ and not 0:** the mask is added before softmax, and e^(−∞) = 0, so a masked token gets exactly zero weight. Adding 0 instead would give e⁰ = 1, which is a full weight on the future token.
+- **Why earlier rows never change:** a new token sits in the **masked future** of every earlier row, so those rows never see it. That means the earlier rows, and the K and V computed for earlier tokens, **never change**, which is why caching K and V is exact.
+- **Cost of the naive loop:** each of the N = 256 steps re-feeds the P = 512 prompt tokens plus every token generated so far, so the work is N × P + N(N − 1) ÷ 2 = 256 × 512 + 32,640 = 131,072 + 32,640 ≈ **164k token passes**.
+- **What's actually needed:** each token only has to be processed once, so the work is P + N = 512 + 256 = **768** passes. Since 164k ÷ 768 ≈ 213, the naive loop wastes about **213×**.
+- **What the cache buys:** the KV cache turns each decode step into one new token attending to the cached past, instead of recomputing the whole sequence.
 
 **Key numbers:** naive work = N × P + N(N − 1) ÷ 2; needed = P + N.
 
-**Likely follow-up:** "What does the cache cost?" Memory: 128 KiB per token for Llama 3 8B, which is what limits concurrency (pack 02).
+**Likely follow-up:** "What does the cache cost?" It costs memory: 128 KiB per token for Llama 3 8B. That memory is what limits how many users can run at once (pack 02).
 
 > [!TIP]
 > Give the reason, not just the fact: e⁰ = 1 for why 0 fails, and "the new token is in their masked future" for why old rows stay valid.
@@ -53,14 +55,15 @@
 
 **60-second answer**
 
-- **Bug 1, wrong position:** decode tokens are encoded at the wrong position (RoPE not advanced). Prefill was right, so the first token is fine.
-- **Bug 2, unfilled slots:** attention reads empty zero slots; zero keys still get weight after softmax. Attend only to the filled length.
-- **Bug 3, no reset:** the cache isn't cleared between requests. A correctness bug and a **privacy** bug.
-- **Decode loop:** logits are **(batch, T, vocab)**; position 0 predicts what follows the first token. Use `logits[:, -1, :]`. Engines compute only the last row: full FP32 logits for 8,192 tokens are 8,192 × 128,256 × 4 B ≈ **4.2 GB**, versus 0.5 MB for one row.
+- **Bug 1, wrong position:** the decode tokens are encoded at the wrong position, because the RoPE position isn't advanced for each new token. Prefill used the right positions, so the first token comes out fine and everything after it is gibberish.
+- **Bug 2, unfilled slots:** attention reads the empty, zero-filled slots of the buffer, and a zero key still gets some weight after softmax, so the output is subtly worse. The fix is to attend only to the filled length.
+- **Bug 3, no reset:** the cache isn't cleared between requests, so a new request attends to the previous user's tokens. That makes it a correctness bug and also a **privacy** bug.
+- **Decode loop:** the logits have shape **(batch, T, vocab)**, and position 0 predicts what follows the first token, so the loop ignores the rest of the prompt. The fix is `logits[:, -1, :]`, which samples from the last position.
+- **Why engines compute only the last row:** full FP32 logits for 8,192 tokens are 8,192 × 128,256 × 4 B ≈ **4.2 GB**, while one row is 128,256 × 4 B ≈ **0.5 MB**. Only the last row is needed to pick the next token, so computing the rest is pure waste.
 
 **Key numbers:** logits shape (batch, T, vocab); sample from the last position.
 
-**Likely follow-up:** "How would you test a KV cache?" Compare the cached loop's outputs with the naive loop token by token; they must match exactly.
+**Likely follow-up:** "How would you test a KV cache?" Run the cached loop and the naive loop on the same prompt and compare their outputs token by token. They must match exactly, because caching K and V is exact.
 
 > [!TIP]
 > I guessed "wrong K/V stored" for bug 1 (that would break the first decoded token too), and said logits are hidden × vocab (that's the LM head's weight matrix).
@@ -74,13 +77,15 @@
 
 **60-second answer**
 
-- **Greedy** always takes the top token, so once a phrase becomes most likely it loops. Use sampling (temperature around 0.7–1.0), optionally a repetition penalty.
-- **Temperature > 1 flattens** the distribution, lifting the long tail of junk tokens. Cut the tail with **top-p** (smallest set reaching probability p) or **min-p** (drop tokens below a fraction of the top one).
-- Order: **temperature → softmax → cut the tail → renormalize → draw**.
+- **Repetition at temperature 0:** temperature 0 is **greedy** decoding, which always takes the top token. So once a phrase becomes the most likely continuation, the model keeps choosing it and loops.
+- **Fix for repetition:** sample instead, with a temperature around 0.7–1.0, and optionally add a repetition penalty.
+- **Bizarre words at 1.2:** a **temperature above 1 flattens** the distribution, which lifts the long tail of junk tokens. With no other settings, nothing removes that tail, so junk tokens get drawn now and then.
+- **Fix for junk:** cut the tail with **top-p**, which keeps the smallest set of tokens reaching probability p, or with **min-p**, which drops tokens below a fraction of the top token's probability.
+- **Order matters:** apply **temperature first, then softmax, then cut the tail, then renormalize, then draw**.
 
 **Key numbers:** p ∝ e^(logit ÷ T); T → 0 is greedy.
 
-**Likely follow-up:** "Why is min-p often better than top-p at high temperature?" It scales with the top token's confidence, so it cuts hard when the model is sure and stays open when it isn't.
+**Likely follow-up:** "Why is min-p often better than top-p at high temperature?" Because min-p's cutoff scales with the top token's confidence. So it cuts hard when the model is sure, and stays open when it isn't.
 
 > [!TIP]
 > I said "cut the tail, then apply temperature" (it's the other way round) and that temperature equalizes outcomes (it flattens).
@@ -94,13 +99,13 @@
 
 **60-second answer**
 
-- The residual connection gives an **identity path**: gradients flow straight through deep stacks, and each layer only adds a refinement.
-- Modern models are **pre-norm**: x ← x + f(RMSNorm(x)). RMSNorm normalizes only the **copy fed into each sublayer**; the stream stays raw and accumulates.
-- RMSNorm divides by the root mean square and applies a learned gain, with **no mean subtraction**, which makes it cheaper than LayerNorm.
+- **Why x + f(x):** the residual connection gives an **identity path**, so gradients flow straight through deep stacks. That means each layer only has to add a refinement on top of x instead of rebuilding it.
+- **What gets normalized:** modern models are **pre-norm**, so each layer computes x ← x + f(RMSNorm(x)). RMSNorm normalizes only the **copy fed into each sublayer**, which means the stream itself stays raw and keeps accumulating.
+- **What RMSNorm does:** it divides by the root mean square and applies a learned gain, with **no mean subtraction**. Skipping the mean is what makes it cheaper than LayerNorm.
 
 **Key numbers:** RMSNorm(x) = x ÷ √(mean(x²) + ε) × g.
 
-**Likely follow-up:** "Where does the final norm go?" One last RMSNorm before the LM head, since the raw stream has grown through all the layers.
+**Likely follow-up:** "Where does the final norm go?" There's one last RMSNorm right before the LM head, because the raw stream has grown through all the layers and has never been normalized itself.
 
 > [!TIP]
 > I didn't recall that only the sublayer input is normalized, not the stream.

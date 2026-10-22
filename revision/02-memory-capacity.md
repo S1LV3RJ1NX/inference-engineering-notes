@@ -11,14 +11,14 @@
 
 **60-second answer**
 
-- KV per token = **2 (K and V) × layers × KV heads × head dim × bytes**.
-- Llama 3 8B: 2 × 32 × 8 × 128 × 2 = 131,072 B = **128 KiB**.
-- Llama 2 7B (32 KV heads, no GQA): **512 KiB**, 4× more, so about **4× fewer users** in the same pool.
-- GQA shares each K/V head across several query heads, cutting KV memory and the KV bytes read per decode step, with little quality loss.
+- **The formula:** every token stores one K vector and one V vector in every layer, for every KV head, so KV per token = **2 (K and V) × layers × KV heads × head dim × bytes**.
+- **Llama 3 8B:** that's 2 × 32 layers × 8 KV heads × 128 × 2 bytes (BF16) = 131,072 bytes, which is **128 KiB** per token.
+- **Llama 2 7B:** it has 32 KV heads instead of 8 because it doesn't use GQA, so each token takes 4× as much, **512 KiB**. The same pool then holds a quarter of the tokens, which means about **4× fewer users** per GPU.
+- **What GQA buys:** it shares each K/V head across several query heads, so there are fewer KV heads to store. That cuts KV memory and also the KV bytes read on every decode step, with little loss in quality.
 
 **Key numbers:** 8B: 128 KiB per token; 70B (80 layers, 8 KV heads): 320 KiB per token.
 
-**Likely follow-up:** "How big is one 4,096-token conversation?" 4,096 × 128 KiB = 512 MiB.
+**Likely follow-up:** "How big is one 4,096-token conversation?" Each token takes 128 KiB, so 4,096 tokens take 4,096 × 128 KiB = 512 MiB, about half a gigabyte for one chat.
 
 > [!TIP]
 > Name every factor out loud (K and V, layers, KV heads, head dim, bytes). I once gave the exponents without saying what they were.
@@ -32,14 +32,14 @@
 
 **60-second answer**
 
-- Per block: Q and O are h × h, K and V are h × 1,024, and the MLP has three h × 14,336 matrices: ≈ 34 M + 8 M + 176 M ≈ **218 M**, and the **MLP is ≈ 81%**.
-- 32 blocks ≈ 7 B, plus embeddings and the LM head ≈ 1 B, gives ≈ 8 B.
-- MoE: **memory follows total parameters, compute follows active ones**.
-- Mixtral stores 46.7 B parameters ≈ **93 GB in BF16**, which doesn't fit in 80 GB. Per token it computes like ≈ 13 B, so it's cheap in FLOPs but not in memory.
+- **Per block:** Q and O are each h × h, K and V are each h × 1,024, and the MLP has three h × 14,336 matrices. That's 2 × 4,096² ≈ 34 M, plus 2 × 4,096 × 1,024 ≈ 8 M, plus 3 × 4,096 × 14,336 ≈ 176 M, for ≈ **218 M** per block. Since 176 ÷ 218 ≈ 0.81, the **MLP is ≈ 81%** of each block.
+- **Whole model:** 32 blocks × 218 M ≈ 7 B. The embeddings and the LM head add ≈ 1 B more, which gives the ≈ 8 B total.
+- **The MoE rule:** **memory follows total parameters, compute follows active ones**. Every expert has to sit in GPU memory, even though each token only runs through a few of them.
+- **Mixtral verdict:** it stores 46.7 B parameters, and at 2 bytes each that's ≈ **93 GB in BF16**, which doesn't fit in 80 GB. So the teammate is wrong: per token it computes like a ≈ 13 B model, which makes it cheap in FLOPs, but it isn't cheap in memory.
 
 **Key numbers:** block ≈ 2h² + 2h × KV width + 3h × MLP size.
 
-**Likely follow-up:** "Does MoE decode read all 93 GB per step?" At large batch, nearly every expert is used by some token, so yes, roughly; at batch 1 only the active experts are read.
+**Likely follow-up:** "Does MoE decode read all 93 GB per step?" At large batch, nearly every expert is picked by at least one token in the batch, so yes, each step reads roughly all of it. At batch 1, only the active experts are read.
 
 > [!TIP]
 > Finish with the verdict. I stated the concept (memory = total) but never said "93 GB doesn't fit in 80 GB".
@@ -53,14 +53,15 @@
 
 **60-second answer**
 
-- Weights = parameters × bytes: BF16 ≈ **141 GB**, FP8 ≈ **70 GB**, 4-bit ≈ **36 GB** (including the scale factors).
-- FP8 **loads but can't serve**: about 10 GB is left for activations, CUDA graphs and KV cache.
-- 4-bit leaves ≈ 40 GB for KV, ≈ 120k tokens at 320 KiB per token.
-- Decode floor = bytes ÷ bandwidth: BF16 ≈ 42 ms on one GPU (≈ 21 ms across two), FP8 ≈ 21 ms, 4-bit ≈ **10.7 ms**. So 4-bit on one GPU matches BF16 on two.
+- **Weights:** weight bytes = parameters × bytes per parameter. At 2 bytes that's ≈ **141 GB** in BF16, at 1 byte it's ≈ **70 GB** in FP8, and at half a byte it's ≈ **36 GB** in 4-bit, including the scale factors.
+- **FP8 loads but can't serve:** 70 GB of weights on an 80 GB GPU leaves only about 10 GB, and that has to cover activations, CUDA graphs and the KV cache. So the model loads, but there's almost no room for users.
+- **4-bit can serve:** it leaves ≈ 40 GB for the KV cache, and at 320 KiB per token that's room for ≈ 120k tokens.
+- **Decode floor:** every decode step reads all the weights, so time per token = weight bytes ÷ bandwidth. BF16 is 141 GB ÷ 3.35 TB/s ≈ 42 ms on one GPU, or ≈ 21 ms split across two. FP8 is 70 ÷ 3.35 ≈ 21 ms, and 4-bit is 36 ÷ 3.35 ≈ **10.7 ms**.
+- **Verdict:** FP8 on one GPU already matches BF16 on two at ≈ 21 ms, but it has no room for KV. 4-bit on one GPU fits users and is about twice as fast as BF16 on two (≈ 10.7 ms against ≈ 21 ms).
 
 **Key numbers:** weights = params × bits ÷ 8; decode floor = weight bytes ÷ bandwidth.
 
-**Likely follow-up:** "We have A100s. Does FP8 still help?" A100 has no FP8 tensor cores: FP8 weights save memory and decode time, but they're expanded to 16 bits for the math, so prefill doesn't speed up.
+**Likely follow-up:** "We have A100s. Does FP8 still help?" Partly. FP8 weights still save memory and decode time, because decode time follows the bytes read. But the A100 has no FP8 tensor cores, so the weights are expanded to 16 bits for the math, which means the math runs at 16-bit speed and prefill doesn't speed up.
 
 > [!TIP]
 > I first said decode time stays the same with fewer bits. It follows the bytes, so it halves with each halving of bits. And it's bytes ÷ (bytes/s), not "bytes per second ÷ bandwidth".
@@ -74,14 +75,14 @@
 
 **60-second answer**
 
-- The log is a **worst case at max_model_len**: the 54.8 GiB pool holds ≈ 449k tokens, and 449k ÷ 131,072 = 3.43.
-- Real chats: 449k ÷ 1,800 ≈ **249 at once**.
-- Size max_num_seqs from a **high percentile, not the mean**: 449k ÷ 2,400 ≈ 187, then **round down** with margin (≈ 160–180).
-- Admitting more than fits at final length causes **preemptions**: silent tail spikes with zero errors.
+- **What the log means:** the 3.43× is a **worst case at max_model_len**, assuming every request grows to 131,072 tokens. The 54.8 GiB pool at 128 KiB per token holds ≈ 449k tokens, and 449k ÷ 131,072 = 3.43, which is exactly the number in the log.
+- **Real chats:** at 1,800 tokens each, the same pool holds 449k ÷ 1,800 ≈ **249 at once**, not 3.
+- **Setting max_num_seqs:** size it from a **high percentile, not the mean**, because the long requests are the ones that overflow the pool. At the p95 of 2,400 tokens, 449k ÷ 2,400 ≈ 187, and then you **round down** with some margin, to about 160–180.
+- **Why round down:** if you admit more requests than fit at their final length, the engine has to push some out partway through, which causes **preemptions**. Those show up as silent tail spikes with zero errors.
 
 **Key numbers:** pool tokens = pool bytes ÷ KV per token; requests that fit = pool tokens ÷ final tokens per request.
 
-**Likely follow-up:** "An agent product (1,000-token prompts, 6,000-token outputs) has P99 TPOT spikes but no errors, with max_num_seqs at 1,024 and a 533k-token pool." Only 533k ÷ 7,000 ≈ 76 fit at final length; the counter `num_preemptions_total` confirms it. Set max_num_seqs ≈ 70.
+**Likely follow-up:** "An agent product (1,000-token prompts, 6,000-token outputs) has P99 TPOT spikes but no errors, with max_num_seqs at 1,024 and a 533k-token pool." Each request grows to 1,000 + 6,000 = 7,000 tokens, so only 533k ÷ 7,000 ≈ 76 fit at final length, far below the 1,024 that are admitted. That's why you get preemptions instead of errors, and the counter `num_preemptions_total` confirms it. Set max_num_seqs to ≈ 70, just under the 76 that fit.
 
 > [!TIP]
 > I confused tokens per request with number of requests ("anything above 2,400"), and wavered on rounding. Always round down: admitting more than fits is what causes preemptions.
@@ -95,14 +96,15 @@
 
 **60-second answer**
 
-- **Loading:** the weights don't fit. Use a smaller precision or more GPUs.
-- **Sizing the cache:** one max-length request's KV is bigger than the whole pool. Lower max_model_len; the cache is already everything left over.
-- **Graph capture:** the **headroom outside the budget** is too small. Lower gpu_memory_utilization or capture fewer graph sizes.
-- Raising 0.92 → 0.95 on 79.1 GiB adds ≈ 2.4 GiB ≈ 19k tokens ≈ 10 chats. Going to 0.99 risks an **out-of-memory crash at runtime under peak load**, after a clean startup.
+- **Loading:** the weights themselves don't fit in GPU memory, so the fix is a smaller precision or more GPUs.
+- **Sizing the cache:** with max_model_len = 1,000,000, the KV for one max-length request is bigger than the whole pool. You can't grow the cache, because it already gets everything left over, so the fix is to lower max_model_len.
+- **Graph capture:** CUDA graphs need memory from the **headroom outside the budget**, and that headroom is too small. The fix is to lower gpu_memory_utilization or capture fewer graph sizes.
+- **A small raise:** going from 0.92 to 0.95 on 79.1 GiB adds 0.03 × 79.1 ≈ 2.4 GiB to the pool. At 128 KiB per token that's ≈ 19k more tokens, which is about 10 more 1,800-token chats.
+- **Going to 0.99:** that leaves almost no headroom, so it risks an **out-of-memory crash at runtime under peak load**, even after a clean startup.
 
 **Key numbers:** extra KV tokens = Δutilization × GPU memory ÷ KV per token.
 
-**Likely follow-up:** "Why is the runtime failure worse than a startup failure?" It passes every test at low load and crashes in production at the peak.
+**Likely follow-up:** "Why is the runtime failure worse than a startup failure?" A startup failure shows up straight away. The runtime one passes every test at low load, so it ships, and then it crashes in production at the peak.
 
 > [!TIP]
 > For crash 2 I said "reduce the KV cache". The max length is what's too big. For 0.99 I named the headroom but not when it fails (at runtime).
@@ -116,14 +118,14 @@
 
 **60-second answer**
 
-- **fp8 KV halves bytes per token**, so it **doubles** the pool: 449k → ≈ 900k tokens.
-- **8-bit weights add a fixed amount**, equal to the freed memory: 7.5 GiB ≈ 61k tokens.
-- For 8B, fp8 KV wins easily because the pool is large and the weights small.
-- For 70B on two H100s, the weights (141 GB) dominate and the pool is small. 8-bit weights free ≈ 70 GB, far more than doubling the small pool, so **8-bit weights win**.
+- **fp8 KV cache:** it **halves bytes per token**, from 128 KiB to 64 KiB, so the same pool holds twice as many tokens. That **doubles** capacity, from 449k to ≈ 900k tokens.
+- **8-bit weights:** they **add a fixed amount**, equal to the memory they free. Going from 15 to 7.5 GiB frees 7.5 GiB, and 7.5 GiB ÷ 128 KiB ≈ 61k extra tokens.
+- **For 8B, fp8 KV wins easily:** the pool is large and the weights are small, so doubling the pool adds ≈ 449k tokens while shrinking the weights adds only ≈ 61k.
+- **For 70B on two H100s, the answer flips:** the weights (141 GB) dominate and the pool is small, so doubling it doesn't add much. 8-bit weights free ≈ 70 GB, which is far more than doubling the small pool would give, so **8-bit weights win**.
 
 **Key numbers:** fp8 KV: capacity × 2; weight quantization: + freed bytes ÷ KV per token.
 
-**Likely follow-up:** "Can you do both?" Yes, and on 70B that's the usual setup: FP8 weights and an FP8 KV cache.
+**Likely follow-up:** "Can you do both?" Yes, because they save memory in different places, and on 70B that's the usual setup: FP8 weights and an FP8 KV cache.
 
 > [!TIP]
 > I said both flags double capacity. Only fp8 KV doubles it; smaller weights add a fixed amount.
