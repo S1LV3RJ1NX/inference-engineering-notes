@@ -199,7 +199,7 @@
 
 - **Prefill interference:** each long RAG prefill takes up a whole step, ≈ 6,000 × 16 µs ≈ 96 ms for a 6,000-token prompt. Every chat stream that's already decoding has to wait for that step, so chat users see their stream pause even though chat traffic hasn't changed.
 - **Memory:** RAG requests carry big KV caches, and every decode step is shared by all running requests. So each shared step reads more bytes, and every chat token takes longer.
-- **Why p99 looks the same:** p99 ignores the slowest 1% of gaps. 4 stalls among ≈ 3,940 token gaps is 4 ÷ 3,940 ≈ 0.1%, which is below that 1%, so **p99 is blind** to them. To see them, report the max, p99.9, a stall count or the gap histogram.
+- **Why p99 looks the same:** take lesson 44's test: 32 chat streams for 40 s, with one long prompt injected every 10 s (at 5, 15, 25 and 35 s). That's 4 long prefills, so each user sees **4 stalls**. With ≈ 10 ms decode steps, each user also sees about 40 s ÷ 10 ms ≈ 3,940 token gaps. p99 ignores the slowest 1% of gaps, and 4 ÷ 3,940 ≈ 0.1% is below that 1%, so **p99 is blind** to them. It would only move if stalls were more than 1% of gaps, for example one long prompt every second. To see them, report the max, p99.9, a stall count or the gap histogram.
 - **The fix:** use **chunked prefill** (Q4), so a long prompt is split across steps and never freezes the chat streams for a whole long step. The other option is to separate prefill and decode onto different GPUs (disaggregation).
 
 **Key numbers:** a percentile p only sees events more frequent than 1 − p.
