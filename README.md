@@ -79,6 +79,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 63 | Writing GPU Kernels in Triton: Programming Model | [md](notes/63-triton-programming-model.md) | [pdf](pdf/63-triton-programming-model.pdf) |
 | 64 | Coalescing, Tiling & Reductions | [md](notes/64-coalescing-tiling-reductions.md) | [pdf](pdf/64-coalescing-tiling-reductions.pdf) |
 | 65 | Write Vector & Reduction Kernels | [md](notes/65-vector-reduction-kernels.md) | [pdf](pdf/65-vector-reduction-kernels.pdf) |
+| 66 | Write Softmax & RMSNorm | [md](notes/66-softmax-rmsnorm-kernels.md) | [pdf](pdf/66-softmax-rmsnorm-kernels.pdf) |
 
 ## Revision
 
