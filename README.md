@@ -77,6 +77,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 61 | Compute-Bound vs Memory-Bound & the Roofline Model | [md](notes/61-compute-vs-memory-bound-roofline.md) | [pdf](pdf/61-compute-vs-memory-bound-roofline.pdf) |
 | 62 | GPU Threads, Warps, Blocks & Memory Access | [md](notes/62-gpu-threads-warps-blocks-memory-access.md) | [pdf](pdf/62-gpu-threads-warps-blocks-memory-access.pdf) |
 | 63 | Writing GPU Kernels in Triton: Programming Model | [md](notes/63-triton-programming-model.md) | [pdf](pdf/63-triton-programming-model.pdf) |
+| 64 | Coalescing, Tiling & Reductions | [md](notes/64-coalescing-tiling-reductions.md) | [pdf](pdf/64-coalescing-tiling-reductions.pdf) |
 
 ## Revision
 
