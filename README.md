@@ -81,6 +81,7 @@ To revise, use the [Revision](#revision) section: six themed interview packs of 
 | 65 | Write Vector & Reduction Kernels | [md](notes/65-vector-reduction-kernels.md) | [pdf](pdf/65-vector-reduction-kernels.pdf) |
 | 66 | Write Softmax & RMSNorm | [md](notes/66-softmax-rmsnorm-kernels.md) | [pdf](pdf/66-softmax-rmsnorm-kernels.pdf) |
 | 67 | Write RoPE & Fused Operators | [md](notes/67-rope-fused-operators.md) | [pdf](pdf/67-rope-fused-operators.pdf) |
+| 68 | Benchmark & Profile Against PyTorch | [md](notes/68-benchmark-profile-vs-pytorch.md) | [pdf](pdf/68-benchmark-profile-vs-pytorch.pdf) |
 
 ## Revision
 
